@@ -18,23 +18,37 @@ const TimerView = dynamic(() => import("@/components/TimerView/TimerView"), {
 });
 
 export default function Page() {
-  const { isAuthenticated, isLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading, logout, checkAuth } = useAuth();
   const router = useRouter();
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [, setIsRedirecting] = useState(false);
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+
+  // Establecer un timeout para detectar problemas de carga
+  useEffect(() => {
+    let timeout: NodeJS.Timeout | null = null;
+
+    if (isLoading) {
+      timeout = setTimeout(() => {
+        console.log("Verificación de sesión tardando mucho...");
+        setLoadingTimedOut(true);
+      }, 4000);
+    } else {
+      setLoadingTimedOut(false);
+    }
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [isLoading]);
 
   useEffect(() => {
-    console.log("Auth state:", { isAuthenticated, isLoading });
+    console.log("Auth state:", { isAuthenticated, isLoading, loadingTimedOut });
 
     if (!isLoading && !isAuthenticated) {
       setIsRedirecting(true);
-
-      const redirectTimeout = setTimeout(() => {
-        router.push("/login");
-      }, 100);
-
-      return () => clearTimeout(redirectTimeout);
+      router.push("/login");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router,loadingTimedOut]);
 
   // Función para reiniciar manualmente la sesión si hay problemas
   const handleResetSession = () => {
@@ -48,7 +62,8 @@ export default function Page() {
     router.push("/login");
   };
 
-  if (isLoading || isRedirecting) {
+  // Si la carga está tardando demasiado
+  if (loadingTimedOut && isLoading) {
     return (
       <>
         <div className="relative min-h-screen flex items-center justify-center">
@@ -64,14 +79,26 @@ export default function Page() {
               <div className="animate-pulse">Verificando sesión...</div>
             </div>
 
-            {isLoading && !isRedirecting && (
-              <button
-                onClick={handleResetSession}
-                className="mt-4 px-4 py-2 bg-indigo-700 hover:bg-indigo-600 rounded-md text-sm"
-              >
-                Reiniciar sesión
-              </button>
-            )}
+            <div className="mt-4 p-4 bg-slate-800/60 rounded-lg max-w-xs">
+              <p className="mb-3 text-sm">
+                La verificación está tardando más de lo esperado.
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => checkAuth()}
+                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 rounded-md text-sm"
+                >
+                  Intentar de nuevo
+                </button>
+
+                <button
+                  onClick={handleResetSession}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-sm"
+                >
+                  Reiniciar sesión
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </>

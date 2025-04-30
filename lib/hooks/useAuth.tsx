@@ -9,6 +9,7 @@ interface User {
   id: string;
   email: string;
   name: string;
+  timezone?: string;
 }
 
 interface AuthContextType {
@@ -30,8 +31,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkAuth = async () => {
     try {
       setIsLoading(true);
-      const result = await checkAuthStatus();
-      
+      console.log("Iniciando verificación de autenticación...");
+
+      // Crear una promesa con timeout para evitar bloqueos
+      const authPromise = checkAuthStatus();
+      const timeoutPromise = new Promise<{
+        success: false;
+        authenticated: false;
+        timeout: true;
+      }>((resolve) => {
+        setTimeout(() => {
+          console.log("Timeout en verificación de autenticación");
+          resolve({ success: false, authenticated: false, timeout: true });
+        }, 3000); // 3 segundos de timeout
+      });
+
+      const result = await Promise.race([authPromise, timeoutPromise]);
+
+      if ("timeout" in result) {
+        console.warn("La verificación de autenticación tardó demasiado");
+        setUser(null);
+        setIsAuthenticated(false);
+        return false;
+      }
+
+      console.log("Resultado de autenticación:", result);
+
       if (result.success && result.authenticated && result.user) {
         setUser(result.user);
         setIsAuthenticated(true);
@@ -53,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      setIsLoading(true);
       const result = await logoutUser();
       if (result.success) {
         setUser(null);
@@ -61,16 +87,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error("Logout failed:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Check auth status on initial load
   useEffect(() => {
-    checkAuth();
-  }, []);
+    let isMounted = true;
+
+    const authTimeout = setTimeout(() => {
+      if (isMounted && isLoading) {
+        console.warn("Initial auth check timed out");
+        setIsLoading(false);
+        setIsAuthenticated(false);
+      }
+    }, 5000); // 5 segundos máximo para la verificación inicial
+
+    checkAuth().finally(() => {
+      if (authTimeout) clearTimeout(authTimeout);
+    });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(authTimeout);
+    };
+  }, [isLoading]);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, checkAuth, logout }}>
+    <AuthContext.Provider
+      value={{ user, isAuthenticated, isLoading, checkAuth, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

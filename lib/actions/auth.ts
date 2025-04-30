@@ -9,13 +9,16 @@ export async function checkAuthStatus() {
     const token = cookieStore.get("authToken")?.value;
     
     if (!token) {
-      return { success: false, authenticated: false };
+      console.log("No se encontró token de autenticación");
+      return { success: true, authenticated: false, user: null };
     }
     
+    console.log("Verificando token...");
     const user = await getUserFromToken(token);
+    console.log("Resultado de verificación:", user ? "Usuario encontrado" : "Usuario no encontrado");
     
     if (!user) {
-      return { success: false, authenticated: false };
+      return { success: true, authenticated: false, user: null };
     }
     
     return { 
@@ -24,12 +27,13 @@ export async function checkAuthStatus() {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name
+        name: user.name,
+        timezone: user.timezone || 'America/Mexico_City'
       }
     };
   } catch (error) {
     console.error("Error checking auth status:", error);
-    return { success: false, authenticated: false, error: "Error checking authentication" };
+    return { success: true, authenticated: false, user: null, error: "Error checking authentication" };
   }
 }
 
