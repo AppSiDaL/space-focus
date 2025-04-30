@@ -4,7 +4,7 @@ import mysql from "mysql2/promise"
 const pool = mysql.createPool(process.env.DATABASE_URL || "")
 
 // Función para ejecutar consultas SQL
-export async function query(sql: string, params: any[] = []) {
+export async function query(sql: string, params: (string | number | null|boolean)[] = []) {
   try {
     const [results] = await pool.execute(sql, params)
     return results

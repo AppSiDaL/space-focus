@@ -61,6 +61,7 @@ export async function unsubscribeUserPush() {
 export async function sendAlarmNotification(alarmId: string, userId: string, message: string) {
   try {
     // Obtener la suscripción del usuario
+    //eslint-disable-next-line @typescript-eslint/no-explicit-any
     const subscriptions = (await getSubscriptionDataByUserId(userId)) as any[]
     console.log(subscriptions)
     if (subscriptions.length === 0) {

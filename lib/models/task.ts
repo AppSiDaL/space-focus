@@ -2,6 +2,14 @@ import { query } from "@/lib/db";
 import { Task, TaskInput, TaskUpdateInput } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 
+// Tipos específicos para los resultados de la base de datos
+type MySQLResultRow = Record<string, string | number | null | Buffer>;
+type MySQLQueryResult = {
+  affectedRows: number;
+  insertId: number;
+  warningStatus: number;
+};
+
 /**
  * Obtiene todas las tareas de un usuario
  */
@@ -9,16 +17,21 @@ export async function getTasksByUserId(userId: string): Promise<Task[]> {
   const tasks = await query(
     "SELECT * FROM tasks WHERE userId = ? ORDER BY createdAt DESC",
     [userId]
-  ) as any[];
+  ) as MySQLResultRow[];
   
   return tasks.map(task => ({
-    ...task,
+    id: task.id as string,
+    userId: task.userId as string,
+    title: task.title as string,
+    category: task.category as string | null,
     completed: !!task.completed, // Ensure boolean type
+    durationMinutes: task.durationMinutes as number,
     isRecurring: !!task.isRecurring, // Ensure boolean type
-    scheduledDays: task.scheduledDays ? JSON.parse(task.scheduledDays) : null,
-    createdAt: new Date(task.createdAt),
-    updatedAt: new Date(task.updatedAt),
-    lastCompleted: task.lastCompleted ? new Date(task.lastCompleted) : null
+    scheduledTime: task.scheduledTime as string | null,
+    scheduledDays: task.scheduledDays ? JSON.parse(task.scheduledDays as string) : null,
+    createdAt: new Date(task.createdAt as string),
+    updatedAt: new Date(task.updatedAt as string),
+    lastCompleted: task.lastCompleted ? new Date(task.lastCompleted as string) : null
   }));
 }
 
@@ -26,18 +39,23 @@ export async function getTasksByUserId(userId: string): Promise<Task[]> {
  * Obtiene una tarea específica por su ID
  */
 export async function getTaskById(id: string): Promise<Task | null> {
-  const tasks = await query("SELECT * FROM tasks WHERE id = ?", [id]) as any[];
+  const tasks = await query("SELECT * FROM tasks WHERE id = ?", [id]) as MySQLResultRow[];
   
   if (tasks.length === 0) return null;
   
   return {
-    ...tasks[0],
+    id: tasks[0].id as string,
+    userId: tasks[0].userId as string,
+    title: tasks[0].title as string,
+    category: tasks[0].category as string | null,
     completed: !!tasks[0].completed, // Ensure boolean type
+    durationMinutes: tasks[0].durationMinutes as number,
     isRecurring: !!tasks[0].isRecurring, // Ensure boolean type
-    scheduledDays: tasks[0].scheduledDays ? JSON.parse(tasks[0].scheduledDays) : null,
-    createdAt: new Date(tasks[0].createdAt),
-    updatedAt: new Date(tasks[0].updatedAt),
-    lastCompleted: tasks[0].lastCompleted ? new Date(tasks[0].lastCompleted) : null
+    scheduledTime: tasks[0].scheduledTime as string | null,
+    scheduledDays: tasks[0].scheduledDays ? JSON.parse(tasks[0].scheduledDays as string) : null,
+    createdAt: new Date(tasks[0].createdAt as string),
+    updatedAt: new Date(tasks[0].updatedAt as string),
+    lastCompleted: tasks[0].lastCompleted ? new Date(tasks[0].lastCompleted as string) : null
   };
 }
 
@@ -100,7 +118,7 @@ export async function updateTask(
 ): Promise<boolean> {
   // Construir la consulta SQL de forma dinámica basada en los campos proporcionados
   const updates: string[] = [];
-  const values: any[] = [];
+  const values: (string | number | boolean | null)[] = [];
   
   if (data.title !== undefined) {
     updates.push("title = ?");
@@ -167,7 +185,7 @@ export async function updateTask(
     values
   );
   
-  return (result as any).affectedRows > 0;
+  return (result as MySQLQueryResult).affectedRows > 0;
 }
 
 /**
@@ -175,7 +193,7 @@ export async function updateTask(
  */
 export async function deleteTask(id: string): Promise<boolean> {
   const result = await query("DELETE FROM tasks WHERE id = ?", [id]);
-  return (result as any).affectedRows > 0;
+  return (result as MySQLQueryResult).affectedRows > 0;
 }
 
 /**
@@ -200,7 +218,7 @@ export async function resetRecurringTasks(): Promise<number> {
     AND (lastCompleted IS NULL OR DATE(lastCompleted) < CURDATE())
   `);
   
-  return (result as any).affectedRows;
+  return (result as MySQLQueryResult).affectedRows;
 }
 
 /**
@@ -216,19 +234,23 @@ export async function getScheduledTasksForNow(): Promise<Task[]> {
     WHERE isRecurring = 1 
     AND scheduledTime = ? 
     AND JSON_CONTAINS(scheduledDays, ?)
-  `, [currentTime, `"${currentDay}"`]) as any[];
+  `, [currentTime, `"${currentDay}"`]) as MySQLResultRow[];
   
   return tasks.map(task => ({
-    ...task,
+    id: task.id as string,
+    userId: task.userId as string,
+    title: task.title as string,
+    category: task.category as string | null,
     completed: !!task.completed,
+    durationMinutes: task.durationMinutes as number,
     isRecurring: !!task.isRecurring,
-    scheduledDays: JSON.parse(task.scheduledDays),
-    createdAt: new Date(task.createdAt),
-    updatedAt: new Date(task.updatedAt),
-    lastCompleted: task.lastCompleted ? new Date(task.lastCompleted) : null
+    scheduledTime: task.scheduledTime as string | null,
+    scheduledDays: task.scheduledDays ? JSON.parse(task.scheduledDays as string) : null,
+    createdAt: new Date(task.createdAt as string),
+    updatedAt: new Date(task.updatedAt as string),
+    lastCompleted: task.lastCompleted ? new Date(task.lastCompleted as string) : null
   }));
 }
-
 
 /**
  * Obtener tareas para notificación basadas en el día y hora actuales
@@ -253,16 +275,21 @@ export async function getTasksForNotification(currentDay: string, currentTime: s
       WHERE t.isRecurring = 1
       AND t.scheduledTime BETWEEN ? AND ?
       AND JSON_CONTAINS(t.scheduledDays, ?)
-    `, [startTime, endTime, `"${currentDay}"`]) as any[];
+    `, [startTime, endTime, `"${currentDay}"`]) as MySQLResultRow[];
 
     return tasks.map(task => ({
-      ...task,
+      id: task.id as string,
+      userId: task.userId as string,
+      title: task.title as string,
+      category: task.category as string | null,
       completed: !!task.completed,
+      durationMinutes: task.durationMinutes as number,
       isRecurring: !!task.isRecurring,
-      scheduledDays: task.scheduledDays ? JSON.parse(task.scheduledDays) : null,
-      createdAt: new Date(task.createdAt),
-      updatedAt: new Date(task.updatedAt),
-      lastCompleted: task.lastCompleted ? new Date(task.lastCompleted) : null
+      scheduledTime: task.scheduledTime as string | null,
+      scheduledDays: task.scheduledDays ? JSON.parse(task.scheduledDays as string) : null,
+      createdAt: new Date(task.createdAt as string),
+      updatedAt: new Date(task.updatedAt as string),
+      lastCompleted: task.lastCompleted ? new Date(task.lastCompleted as string) : null
     }));
   } catch (error) {
     console.error("Error al obtener tareas para notificación:", error);

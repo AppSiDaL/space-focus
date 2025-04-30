@@ -24,7 +24,7 @@ export default function TimerSection({
 }: TimerSectionProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
-  const [remainingTime, setRemainingTime] = useState<number>(
+  const [remainingTime] = useState<number>(
     selectedTask?.durationMinutes ? selectedTask.durationMinutes * 60 : 25 * 60
   );
 

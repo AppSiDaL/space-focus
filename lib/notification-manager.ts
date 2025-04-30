@@ -41,7 +41,6 @@ export const scheduleNotification = (
   title: string,
   time: string,
   days: number[],
-  icon = "🚀",
   category = "Task"
 ): string => {
   // Generate a unique ID for this notification

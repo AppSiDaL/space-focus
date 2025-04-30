@@ -29,26 +29,17 @@ export default function NotificationPermission() {
   >("prompt");
   const [isClosing, setIsClosing] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [subscription, setSubscription] = useState<PushSubscription | null>(
-    null
-  );
   // States for notification permission UI
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
-  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     if ("serviceWorker" in navigator && "PushManager" in window) {
-      setIsSupported(true);
       registerServiceWorker();
     }
 
-    setIsIOS(
-      /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
-    );
-    setIsStandalone(window.matchMedia("(display-mode: standalone)").matches);
+    // Detectamos si es iOS pero no usamos esta info por ahora
+    // El código sigue aquí para implementaciones futuras
   }, []);
 
   // Registrar el service worker
@@ -58,12 +49,9 @@ export default function NotificationPermission() {
         scope: "/",
         updateViaCache: "none",
       });
-      const sub = await registration.pushManager.getSubscription();
-      setSubscription(sub);
-      setLoading(false);
+      await registration.pushManager.getSubscription();
     } catch (error) {
       console.error("Error al registrar el service worker:", error);
-      setLoading(false);
     }
   }
 
@@ -133,7 +121,6 @@ export default function NotificationPermission() {
           process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
         ),
       });
-      setSubscription(sub);
       const serializedSub = JSON.parse(JSON.stringify(sub));
       await subscribeUserPush(serializedSub);
     } catch (error) {

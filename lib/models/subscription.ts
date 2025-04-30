@@ -1,17 +1,29 @@
 import { query } from "@/lib/db";
-import { Subscription,SubscriptionInput} from "@/types";
+import { Subscription } from "@/types";
 import { v4 as uuidv4 } from "uuid";
+
+// Tipos específicos para los resultados de la base de datos
+type MySQLResultRow = Record<string, string | number | null | Buffer>;
+type MySQLQueryResult = {
+  affectedRows: number;
+  insertId: number;
+  warningStatus: number;
+};
 
 /**
  * Obtiene todas las suscripciones de un usuario
  */
-
 export async function getSubscriptionsByUserId(userId: string): Promise<Subscription[]> {
-    const subscriptions = await query("SELECT * FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC",
-[userId]) as any[];
+    const subscriptions = await query(
+      "SELECT * FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC",
+      [userId]
+    ) as MySQLResultRow[];
+    
     return subscriptions.map(subscription => ({
-        ...subscription,
-        created_at: new Date(subscription.created_at)
+        id: subscription.id as string,
+        user_id: subscription.user_id as string,
+        subscription: JSON.parse(subscription.subscription as string),
+        created_at: new Date(subscription.created_at as string)
     }));    
 }
 
@@ -24,20 +36,20 @@ export async function createSubscription(
 ): Promise<Subscription> {
   const id = uuidv4();
   const now = new Date();
-  const isoDate = now.toISOString().slice(0, 19).replace('T', ' ');
+  
   await query("INSERT INTO subscriptions (id, user_id, subscription) VALUES (?, ?, ?)", [
     id,
     userId,
     JSON.stringify(subscription),
-  ])
-    return {
-        id,
-        user_id: userId,
-        subscription: subscription,
-        created_at: now
-    };
-  }
-
+  ]);
+  
+  return {
+      id,
+      user_id: userId,
+      subscription: subscription,
+      created_at: now
+  };
+}
 
 /**
  * Actualiza suscripción de un usuario
@@ -52,8 +64,9 @@ export async function updateSubscription(
         JSON.stringify(subscription),
         userId,
       ]
-    );
-    return (result as any).affectedRows > 0;
+    ) as MySQLQueryResult;
+    
+    return result.affectedRows > 0;
 }
 
 /**
@@ -63,14 +76,19 @@ export async function deleteSubscription(userId: string): Promise<boolean> {
     const result = await query(
       "DELETE FROM subscriptions WHERE user_id = ?",
       [userId]
-    );
-    return (result as any).affectedRows > 0;
+    ) as MySQLQueryResult;
+    
+    return result.affectedRows > 0;
 }
 
 /**
  * Obtiene solo los datos de suscripción de un usuario
  */
 export async function getSubscriptionDataByUserId(userId: string): Promise<PushSubscription[]> {
-  const subscriptions = (await query("SELECT subscription FROM subscriptions WHERE user_id = ?", [userId])) as any[];
-  return subscriptions.map(item => JSON.parse(item.subscription));
+  const subscriptions = await query(
+    "SELECT subscription FROM subscriptions WHERE user_id = ?", 
+    [userId]
+  ) as MySQLResultRow[];
+  
+  return subscriptions.map(item => JSON.parse(item.subscription as string) as PushSubscription);
 }

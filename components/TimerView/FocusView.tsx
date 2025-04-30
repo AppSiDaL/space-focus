@@ -44,9 +44,6 @@ export default function FocusView({
   const rocketX = useSpring(0, { stiffness: 100, damping: 30 });
   const rocketY = useSpring(-80, { stiffness: 100, damping: 30 }); // Start slightly above center
 
-  // Track the actual position for parallax effect
-  const [rocketPosition, setRocketPosition] = useState({ x: 0, y: 0 });
-
   // Track the virtual position (for continuous movement effect)
   const virtualPositionRef = useRef({ x: 0, y: 0 });
 
@@ -72,22 +69,6 @@ export default function FocusView({
 
     return () => clearInterval(quoteInterval);
   }, []);
-
-  // Update rocket position for background parallax
-  useEffect(() => {
-    const unsubscribeX = rocketX.onChange((x) => {
-      setRocketPosition((prev) => ({ ...prev, x }));
-    });
-
-    const unsubscribeY = rocketY.onChange((y) => {
-      setRocketPosition((prev) => ({ ...prev, y }));
-    });
-
-    return () => {
-      unsubscribeX();
-      unsubscribeY();
-    };
-  }, [rocketX, rocketY]);
 
   // Set up the rocket movement with smoother animation
   useEffect(() => {
@@ -215,7 +196,7 @@ export default function FocusView({
           key={quote} // Key changes with quote to trigger animation
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          <p className="text-gray-400 italic">"{quote}"</p>
+          <p className="text-gray-400 italic">&ldquo;{quote}&rdquo;</p>
         </motion.div>
       </div>
 
@@ -228,7 +209,6 @@ export default function FocusView({
         >
           <Pause className="w-5 h-5 mr-2" /> Pausar
         </motion.button>
-
         <motion.button
           className="flex items-center justify-center px-4 py-2 bg-transparent border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-gray-300 rounded-md"
           whileHover={{ scale: 1.05 }}

@@ -26,9 +26,13 @@ export default function LoginForm() {
       }
 
       router.push("/");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.log("Error during login:", error);
-      setError(error.message || "Failed to login. Please try again.");
+      if (error instanceof Error) {
+        setError(error.message || "Failed to login. Please try again.");
+      } else {
+        setError("Failed to login. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }

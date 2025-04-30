@@ -13,14 +13,25 @@ export type UserWithPassword = User & {
   password: string;
 };
 
+// Define tipos para los resultados de MySQL
+type MySQLResultRow = Record<string, string | number | null | Buffer>;
+type MySQLQueryResult = {
+  affectedRows: number;
+  insertId: number;
+  warningStatus: number;
+};
+type MySQLCountResult = {
+  count: number;
+};
+
 // Crear un pool de conexiones para reutilizarlas
 const pool = mysql.createPool(process.env.DATABASE_URL || "");
 
 // Función para ejecutar consultas SQL
-export async function query(sql: string, params: any[] = []) {
+export async function query(sql: string, params: (string | number | null| boolean)[] = []): Promise<MySQLResultRow[] | MySQLQueryResult> {
   try {
     const [results] = await pool.execute(sql, params);
-    return results;
+    return results as MySQLResultRow[] | MySQLQueryResult;
   } catch (error) {
     console.error("Error en la consulta SQL:", error);
     throw error;
@@ -28,13 +39,13 @@ export async function query(sql: string, params: any[] = []) {
 }
 
 export async function getUserByEmail(email: string): Promise<UserWithPassword | null> {
-  const users = (await query("SELECT id, email, name, password FROM users WHERE email = ?", [email])) as UserWithPassword[];
-  return users.length > 0 ? users[0] : null;
+  const users = (await query("SELECT id, email, name, password FROM users WHERE email = ?", [email])) as MySQLResultRow[];
+  return users.length > 0 ? users[0] as unknown as UserWithPassword : null;
 }
 
 export async function countUsers(): Promise<number> {
-  const result = (await query("SELECT COUNT(*) as count FROM users")) as any[];
-  return result[0].count;
+  const result = (await query("SELECT COUNT(*) as count FROM users")) as MySQLResultRow[];
+  return (result[0] as unknown as MySQLCountResult).count;
 }
 
 export async function createUser(email: string, password: string, name: string): Promise<User> {
@@ -53,8 +64,8 @@ export async function createUser(email: string, password: string, name: string):
 }
 
 export async function getUserById(id: string): Promise<User | null> {
-  const users = (await query("SELECT id, email, name FROM users WHERE id = ?", [id])) as User[];
-  return users.length > 0 ? users[0] : null;
+  const users = (await query("SELECT id, email, name FROM users WHERE id = ?", [id])) as MySQLResultRow[];
+  return users.length > 0 ? users[0] as unknown as User : null;
 }
 
 export async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
@@ -62,7 +73,7 @@ export async function verifyPassword(plainPassword: string, hashedPassword: stri
 }
 
 export async function getAllUsers(): Promise<User[]> {
-  return (await query("SELECT id, email, name FROM users")) as User[];
+  return (await query("SELECT id, email, name FROM users")) as unknown as User[];
 }
 
 export async function updateUser(id: string, updates: Partial<User>): Promise<boolean> {
@@ -72,7 +83,7 @@ export async function updateUser(id: string, updates: Partial<User>): Promise<bo
     .reduce((acc, [key, value]) => {
       acc[key] = value;
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, string>);
   
   if (Object.keys(validUpdates).length === 0) {
     return false;
@@ -82,10 +93,10 @@ export async function updateUser(id: string, updates: Partial<User>): Promise<bo
   const values = [...Object.values(validUpdates), id];
   
   const result = await query(`UPDATE users SET ${setClauses} WHERE id = ?`, values);
-  return (result as any).affectedRows > 0;
+  return ((result as MySQLQueryResult).affectedRows) > 0;
 }
 
 export async function deleteUser(id: string): Promise<boolean> {
   const result = await query("DELETE FROM users WHERE id = ?", [id]);
-  return (result as any).affectedRows > 0;
+  return ((result as MySQLQueryResult).affectedRows) > 0;
 }
