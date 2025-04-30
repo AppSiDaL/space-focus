@@ -26,8 +26,13 @@ export async function loginUser(formData: FormData) {
       return { success: false, message: "Credenciales inválidas" };
     }
 
-    // Devolver el usuario sin la contraseña
-    const userData = { id: user.id, email: user.email, name: user.name };
+    // Devolver el usuario sin la contraseña, pero incluyendo timezone
+    const userData = { 
+      id: user.id, 
+      email: user.email, 
+      name: user.name,
+      timezone: user.timezone || 'America/Mexico_City' // Incluir timezone con valor por defecto
+    };
 
     // Generar token y establecer cookie
     const token = generateToken(userData);
@@ -49,7 +54,17 @@ export async function loginUser(formData: FormData) {
 }
 
 function generateToken(user: User): string {
-  return jwt.sign({ id: user.id, email: user.email, name: user.name }, process.env.JWT_SECRET || "secret", {
-    expiresIn: "7d",
-  });
+  // Incluir timezone en el token JWT
+  return jwt.sign(
+    { 
+      id: user.id, 
+      email: user.email, 
+      name: user.name,
+      timezone: user.timezone 
+    }, 
+    process.env.JWT_SECRET || "secret", 
+    {
+      expiresIn: "7d",
+    }
+  );
 }
