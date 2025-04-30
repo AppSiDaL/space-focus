@@ -31,7 +31,8 @@ export async function getTasksByUserId(userId: string): Promise<Task[]> {
     scheduledDays: task.scheduledDays ? JSON.parse(task.scheduledDays as string) : null,
     createdAt: new Date(task.createdAt as string),
     updatedAt: new Date(task.updatedAt as string),
-    lastCompleted: task.lastCompleted ? new Date(task.lastCompleted as string) : null
+    lastCompleted: task.lastCompleted ? new Date(task.lastCompleted as string) : null,
+    lastNotified: task.lastNotified ? new Date(task.lastNotified as string) : null
   }));
 }
 
@@ -55,7 +56,8 @@ export async function getTaskById(id: string): Promise<Task | null> {
     scheduledDays: tasks[0].scheduledDays ? JSON.parse(tasks[0].scheduledDays as string) : null,
     createdAt: new Date(tasks[0].createdAt as string),
     updatedAt: new Date(tasks[0].updatedAt as string),
-    lastCompleted: tasks[0].lastCompleted ? new Date(tasks[0].lastCompleted as string) : null
+    lastCompleted: tasks[0].lastCompleted ? new Date(tasks[0].lastCompleted as string) : null,
+    lastNotified: tasks[0].lastNotified ? new Date(tasks[0].lastNotified as string) : null
   };
 }
 
@@ -75,8 +77,8 @@ export async function createTask(
   await query(
     `INSERT INTO tasks 
     (id, userId, title, category, completed, durationMinutes, createdAt, updatedAt, 
-     isRecurring, scheduledTime, scheduledDays, lastCompleted) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     isRecurring, scheduledTime, scheduledDays, lastCompleted, lastNotified) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       userId,
@@ -89,7 +91,8 @@ export async function createTask(
       taskData.isRecurring || false,
       taskData.scheduledTime || null,
       scheduledDaysString,
-      null // lastCompleted
+      null, // lastCompleted
+      null  // lastNotified
     ]
   );
   
@@ -105,7 +108,8 @@ export async function createTask(
     isRecurring: taskData.isRecurring || false,
     scheduledTime: taskData.scheduledTime || null,
     scheduledDays: taskData.scheduledDays || null,
-    lastCompleted: null
+    lastCompleted: null,
+    lastNotified: null
   };
 }
 
@@ -164,6 +168,11 @@ export async function updateTask(
   if (data.lastCompleted !== undefined) {
     updates.push("lastCompleted = ?");
     values.push(data.lastCompleted ? data.lastCompleted.toISOString().slice(0, 10) : null);
+  }
+  
+  if (data.lastNotified !== undefined) {
+    updates.push("lastNotified = ?");
+    values.push(data.lastNotified ? data.lastNotified.toISOString().slice(0, 19).replace('T', ' ') : null);
   }
   
   // Siempre actualizar updatedAt
@@ -248,7 +257,8 @@ export async function getScheduledTasksForNow(): Promise<Task[]> {
     scheduledDays: task.scheduledDays ? JSON.parse(task.scheduledDays as string) : null,
     createdAt: new Date(task.createdAt as string),
     updatedAt: new Date(task.updatedAt as string),
-    lastCompleted: task.lastCompleted ? new Date(task.lastCompleted as string) : null
+    lastCompleted: task.lastCompleted ? new Date(task.lastCompleted as string) : null,
+    lastNotified: task.lastNotified ? new Date(task.lastNotified as string) : null
   }));
 }
 
@@ -289,10 +299,64 @@ export async function getTasksForNotification(currentDay: string, currentTime: s
       scheduledDays: task.scheduledDays ? JSON.parse(task.scheduledDays as string) : null,
       createdAt: new Date(task.createdAt as string),
       updatedAt: new Date(task.updatedAt as string),
-      lastCompleted: task.lastCompleted ? new Date(task.lastCompleted as string) : null
+      lastCompleted: task.lastCompleted ? new Date(task.lastCompleted as string) : null,
+      lastNotified: task.lastNotified ? new Date(task.lastNotified as string) : null
     }));
   } catch (error) {
     console.error("Error al obtener tareas para notificación:", error);
+    throw error;
+  }
+}
+
+
+/**
+ * Obtener tareas para notificación basadas en una ventana de tiempo para el día actual
+ */
+export async function getTasksForTimeWindow(
+  currentDay: string, 
+  startTime: string, 
+  endTime: string
+): Promise<Task[]> {
+  try {
+    const tasks = await query(`
+      SELECT t.*, u.id as userId 
+      FROM tasks t
+      JOIN users u ON t.userId = u.id
+      WHERE t.isRecurring = 1
+      AND t.scheduledTime BETWEEN ? AND ?
+      AND JSON_CONTAINS(t.scheduledDays, ?)
+      AND (t.lastNotified IS NULL OR DATE(t.lastNotified) < CURDATE())
+    `, [startTime, endTime, `"${currentDay}"`]) as MySQLResultRow[];
+
+    // Marcar estas tareas como notificadas hoy
+    if (tasks.length > 0) {
+      const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      
+      for (const task of tasks) {
+        await query(
+          `UPDATE tasks SET lastNotified = ? WHERE id = ?`,
+          [now, task.id ? task.id.toString() : ""]
+        );
+      }
+    }
+
+    return tasks.map(task => ({
+      id: task.id as string,
+      userId: task.userId as string,
+      title: task.title as string,
+      category: task.category as string | null,
+      completed: !!task.completed,
+      durationMinutes: task.durationMinutes as number,
+      isRecurring: !!task.isRecurring,
+      scheduledTime: task.scheduledTime as string | null,
+      scheduledDays: task.scheduledDays ? JSON.parse(task.scheduledDays as string) : null,
+      createdAt: new Date(task.createdAt as string),
+      updatedAt: new Date(task.updatedAt as string),
+      lastCompleted: task.lastCompleted ? new Date(task.lastCompleted as string) : null,
+      lastNotified: task.lastNotified ? new Date(task.lastNotified as string) : null
+    }));
+  } catch (error) {
+    console.error("Error al obtener tareas para ventana de tiempo:", error);
     throw error;
   }
 }

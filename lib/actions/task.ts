@@ -1,6 +1,6 @@
 "use server";
 
-import { getTasksForNotification } from '../models/task';
+import { getTasksForTimeWindow } from '../models/task';
 import { sendAlarmNotification } from './subscriptions';
 import { createTask, getTasksByUserId, updateTask, deleteTask } from "@/lib/models/task";
 import { revalidatePath } from "next/cache";
@@ -126,26 +126,52 @@ export async function deleteTaskAction(id: string) {
   }
 }
 
-
 export async function checkScheduledTasks() {
   try {
-    // Obtener la fecha y hora actuales
     const now = new Date();
     const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    const currentTime = now.toTimeString().substring(0, 8); // "HH:MM:SS" format
     
-    // Obtener tareas que deberían notificarse ahora (con 5 minutos de margen)
-    const tasks = await getTasksForNotification(currentDay, currentTime);
+    // Obtener la hora actual en formato HH:MM:SS
+    const currentTime = now.toTimeString().substring(0, 8);
+    
+    // Calcular tiempo 15 minutos atrás
+    const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
+    const previousTime = fifteenMinutesAgo.toTimeString().substring(0, 8);
+    
+    // Obtener tareas programadas entre hace 15 minutos y ahora
+    const tasks = await getTasksForTimeWindow(currentDay, previousTime, currentTime);
+    
+    console.log(`Verificando ${tasks.length} tareas programadas entre ${previousTime} y ${currentTime}`);
     
     let notifiedCount = 0;
     let failedCount = 0;
 
-    // Enviar notificación para cada tarea
     for (const task of tasks) {
+      // Determinar si la tarea está programada para ahora o es de una ventana anterior
+      const scheduledTime = task.scheduledTime || "00:00:00";
+      const isDelayed = scheduledTime < currentTime;
+      
+      // Personalizar mensaje según si la notificación está retrasada o no
+      let message = `Es hora de tu tarea: ${task.title}`;
+      
+      if (isDelayed) {
+        // Calcular minutos de retraso (simplificado)
+        const taskHours = parseInt(scheduledTime.split(':')[0], 10);
+        const taskMinutes = parseInt(scheduledTime.split(':')[1], 10);
+        const nowHours = now.getHours();
+        const nowMinutes = now.getMinutes();
+        
+        let minutesAgo = (nowHours - taskHours) * 60 + (nowMinutes - taskMinutes);
+        if (minutesAgo < 0) minutesAgo = 1; // Caso edge por cambio de hora
+        
+        message = `Hace ${minutesAgo} minutos era hora de tu tarea: ${task.title}`;
+      }
+      
+      // Enviar notificación
       const notification = await sendAlarmNotification(
         task.id, 
         task.userId,
-        `Es hora de tu tarea: ${task.title}`
+        message
       );
       
       if (notification.success) {
@@ -154,13 +180,12 @@ export async function checkScheduledTasks() {
         failedCount++;
       }
     }
-
-    console.log(`Tareas procesadas: ${tasks.length}, Notificadas: ${notifiedCount}, Fallidas: ${failedCount}`);
     
     return { 
       processed: tasks.length,
       notified: notifiedCount,
-      failed: failedCount
+      failed: failedCount,
+      timeWindow: `${previousTime} - ${currentTime}`
     };
   } catch (error) {
     console.error("Error al verificar tareas programadas:", error);

@@ -1,13 +1,13 @@
 export interface User {
-    id: string
-    email: string
-    name: string
-  }
-  
-  export interface UserWithPassword extends User {
-    password: string
-  }
-  
+  id: string
+  email: string
+  name: string
+}
+
+export interface UserWithPassword extends User {
+  password: string
+}
+
 export interface Task {
   id: string;
   userId: string;
@@ -21,6 +21,7 @@ export interface Task {
   scheduledTime: string | null; // Format: "HH:MM:SS"
   scheduledDays: string[] | null; // Days of week: ["monday", "wednesday", "friday"]
   lastCompleted: Date | null;
+  lastNotified: Date | null;  // Nuevo campo: última vez que se notificó la tarea
 }
 
 export interface TaskInput {
@@ -41,6 +42,7 @@ export interface TaskUpdateInput {
   scheduledTime?: string | null;
   scheduledDays?: string[] | null;
   lastCompleted?: Date | null;
+  lastNotified?: Date | null;  // Nuevo campo para actualización
 }
 
 

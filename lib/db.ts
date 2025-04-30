@@ -49,8 +49,9 @@ export async function initDatabase() {
         updatedAt DATETIME NOT NULL,
         isRecurring BOOLEAN NOT NULL DEFAULT 0,
         scheduledTime TIME,
-          scheduledDays TEXT,
+        scheduledDays TEXT,
         lastCompleted DATE,
+        lastNotified DATETIME NULL,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
