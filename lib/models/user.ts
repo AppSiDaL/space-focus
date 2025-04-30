@@ -1,17 +1,7 @@
-import mysql from "mysql2/promise";
+import { query } from "@/lib/db";
 import { v4 as uuidv4 } from "uuid";
 import bcrypt from "bcryptjs";
-
-// Define User types
-export type User = {
-  id: string;
-  email: string;
-  name: string;
-};
-
-export type UserWithPassword = User & {
-  password: string;
-};
+import { User,UserWithPassword } from "@/types";
 
 // Define tipos para los resultados de MySQL
 type MySQLResultRow = Record<string, string | number | null | Buffer>;
@@ -24,23 +14,20 @@ type MySQLCountResult = {
   count: number;
 };
 
-// Crear un pool de conexiones para reutilizarlas
-const pool = mysql.createPool(process.env.DATABASE_URL || "");
-
-// Función para ejecutar consultas SQL
-export async function query(sql: string, params: (string | number | null| boolean)[] = []): Promise<MySQLResultRow[] | MySQLQueryResult> {
-  try {
-    const [results] = await pool.execute(sql, params);
-    return results as MySQLResultRow[] | MySQLQueryResult;
-  } catch (error) {
-    console.error("Error en la consulta SQL:", error);
-    throw error;
-  }
-}
 
 export async function getUserByEmail(email: string): Promise<UserWithPassword | null> {
-  const users = (await query("SELECT id, email, name, password FROM users WHERE email = ?", [email])) as MySQLResultRow[];
-  return users.length > 0 ? users[0] as unknown as UserWithPassword : null;
+  const users = (await query("SELECT id, email, name, password, timezone FROM users WHERE email = ?", [email])) as MySQLResultRow[];
+  
+  if (users.length === 0) return null;
+  
+  const user = users[0];
+  return {
+    id: user.id as string,
+    email: user.email as string,
+    name: user.name as string,
+    password: user.password as string,
+    timezone: (user.timezone as string) || 'America/Mexico_City' // Valor predeterminado
+  };
 }
 
 export async function countUsers(): Promise<number> {
@@ -48,24 +35,34 @@ export async function countUsers(): Promise<number> {
   return (result[0] as unknown as MySQLCountResult).count;
 }
 
-export async function createUser(email: string, password: string, name: string): Promise<User> {
+export async function createUser(email: string, password: string, name: string, timezone: string = 'America/Mexico_City'): Promise<User> {
   const id = uuidv4();
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
   
-  await query("INSERT INTO users (id, email, password, name) VALUES (?, ?, ?, ?)", [
+  await query("INSERT INTO users (id, email, password, name, timezone) VALUES (?, ?, ?, ?, ?)", [
     id,
     email,
     hashedPassword,
     name,
+    timezone
   ]);
   
-  return { id, email, name };
+  return { id, email, name, timezone };
 }
 
 export async function getUserById(id: string): Promise<User | null> {
-  const users = (await query("SELECT id, email, name FROM users WHERE id = ?", [id])) as MySQLResultRow[];
-  return users.length > 0 ? users[0] as unknown as User : null;
+  const users = (await query("SELECT id, email, name, timezone FROM users WHERE id = ?", [id])) as MySQLResultRow[];
+  
+  if (users.length === 0) return null;
+  
+  const user = users[0];
+  return {
+    id: user.id as string,
+    email: user.email as string,
+    name: user.name as string,
+    timezone: (user.timezone as string) || 'America/Mexico_City'
+  };
 }
 
 export async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
@@ -73,11 +70,18 @@ export async function verifyPassword(plainPassword: string, hashedPassword: stri
 }
 
 export async function getAllUsers(): Promise<User[]> {
-  return (await query("SELECT id, email, name FROM users")) as unknown as User[];
+  const users = (await query("SELECT id, email, name, timezone FROM users")) as MySQLResultRow[];
+  
+  return users.map(user => ({
+    id: user.id as string,
+    email: user.email as string,
+    name: user.name as string,
+    timezone: (user.timezone as string) || 'America/Mexico_City'
+  }));
 }
 
 export async function updateUser(id: string, updates: Partial<User>): Promise<boolean> {
-  const allowedUpdates = ['name', 'email'];
+  const allowedUpdates = ['name', 'email', 'timezone']; // Añadido timezone
   const validUpdates = Object.entries(updates)
     .filter(([key]) => allowedUpdates.includes(key))
     .reduce((acc, [key, value]) => {
@@ -99,4 +103,51 @@ export async function updateUser(id: string, updates: Partial<User>): Promise<bo
 export async function deleteUser(id: string): Promise<boolean> {
   const result = await query("DELETE FROM users WHERE id = ?", [id]);
   return ((result as MySQLQueryResult).affectedRows) > 0;
+}
+
+/**
+ * Actualiza la zona horaria de un usuario
+ */
+export async function updateUserTimezone(userId: string, timezone: string): Promise<boolean> {
+  try {
+    const result = await query(
+      "UPDATE users SET timezone = ? WHERE id = ?",
+      [timezone, userId]
+    ) as MySQLQueryResult;
+    
+    return result.affectedRows > 0;
+  } catch (error) {
+    console.error("Error al actualizar timezone:", error);
+    return false;
+  }
+}
+
+/**
+ * Ejecutar migración para añadir el campo timezone si no existe
+ */
+export async function migrateTimezoneField(): Promise<boolean> {
+  try {
+    // Verificar si la columna ya existe
+    const checkColumn = await query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_NAME = 'users' 
+      AND COLUMN_NAME = 'timezone'
+    `) as MySQLResultRow[];
+    
+    if (Array.isArray(checkColumn) && checkColumn.length === 0) {
+      // La columna no existe, añadirla
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN timezone VARCHAR(50) DEFAULT 'America/Mexico_City'
+      `);
+      console.log("Columna timezone añadida a la tabla usuarios");
+      return true;
+    } else {
+      console.log("La columna timezone ya existe en la tabla usuarios");
+      return false;
+    }
+  } catch (error) {
+    console.error("Error al migrar la columna timezone:", error);
+    return false;
+  }
 }

@@ -2,6 +2,7 @@ export interface User {
   id: string
   email: string
   name: string
+  timezone: string  // Nueva propiedad
 }
 
 export interface UserWithPassword extends User {

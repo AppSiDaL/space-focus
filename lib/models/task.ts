@@ -308,41 +308,72 @@ export async function getTasksForNotification(currentDay: string, currentTime: s
   }
 }
 
-
 /**
- * Obtener tareas para notificación basadas en una ventana de tiempo para el día actual
+ * Obtener tareas para notificación basadas en una ventana de tiempo
+ * teniendo en cuenta las zonas horarias de los usuarios
  */
 export async function getTasksForTimeWindow(
-  currentDay: string, 
-  startTime: string, 
-  endTime: string
+  startTime: string,  // UTC time "HH:MM:SS"
+  endTime: string     // UTC time "HH:MM:SS"
 ): Promise<Task[]> {
   try {
+    // Consulta teniendo en cuenta las zonas horarias
     const tasks = await query(`
-      SELECT t.*, u.id as userId 
+      SELECT t.*, u.id as userId, u.timezone 
       FROM tasks t
       JOIN users u ON t.userId = u.id
       WHERE t.isRecurring = 1
-      AND t.scheduledTime BETWEEN ? AND ?
-      AND JSON_CONTAINS(t.scheduledDays, ?)
       AND (t.lastNotified IS NULL OR DATE(t.lastNotified) < CURDATE())
-    `, [startTime, endTime, `"${currentDay}"`]) as MySQLResultRow[];
-
-    // Marcar estas tareas como notificadas hoy
-    if (tasks.length > 0) {
-      const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    `) as (MySQLResultRow & { timezone: string })[];
+    
+    // Filtrar las tareas que deberían ejecutarse en este período
+    // según la zona horaria de cada usuario
+    const now = new Date();
+    const matchingTasks = tasks.filter(task => {
+      // Verificamos si el día actual en la zona horaria del usuario coincide con los días programados
+      const userTz = task.timezone || 'America/Mexico_City'; // Zona por defecto
+      const userLocalTime = new Date(now.toLocaleString('en-US', { timeZone: userTz }));
+      const userDay = userLocalTime.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
       
-      for (const task of tasks) {
+      // Verificar si la tarea está programada para este día
+      const scheduledDays = task.scheduledDays ? JSON.parse(task.scheduledDays as string) : [];
+      if (!scheduledDays.includes(userDay)) return false;
+      
+      // Verificar si la hora programada cae en la ventana actual
+      if (!task.scheduledTime) return false;
+      
+      // Convertir la hora programada a tiempo UTC
+      const [taskHour, taskMinute] = (task.scheduledTime as string).split(':');
+      const taskTimeInUserTz = new Date(userLocalTime);
+      taskTimeInUserTz.setHours(parseInt(taskHour, 10), parseInt(taskMinute, 10), 0, 0);
+      
+      // Convertir a UTC para comparar con nuestra ventana
+      const taskTimeUTC = new Date(taskTimeInUserTz.toLocaleString('en-US', { timeZone: 'UTC' }));
+      const taskTimeStr = taskTimeUTC.toTimeString().substring(0, 8); // "HH:MM:SS"
+      
+      // Verificar si cae en nuestra ventana de tiempo
+      return taskTimeStr >= startTime && taskTimeStr <= endTime;
+    });
+    
+    // Marcar estas tareas como notificadas
+    if (matchingTasks.length > 0) {
+      const nowStr = now.toISOString().slice(0, 19).replace('T', ' ');
+      
+      for (const task of matchingTasks) {
+        // Convertir el ID a string si es un Buffer
+        const taskId = Buffer.isBuffer(task.id) ? task.id.toString() : task.id as string;
+        
         await query(
           `UPDATE tasks SET lastNotified = ? WHERE id = ?`,
-          [now, task.id ? task.id.toString() : ""]
+          [nowStr, taskId]
         );
       }
     }
 
-    return tasks.map(task => ({
-      id: task.id as string,
-      userId: task.userId as string,
+    // Devolver las tareas en formato Task[]
+    return matchingTasks.map(task => ({
+      id: Buffer.isBuffer(task.id) ? task.id.toString() : task.id as string,
+      userId: Buffer.isBuffer(task.userId) ? task.userId.toString() : task.userId as string,
       title: task.title as string,
       category: task.category as string | null,
       completed: !!task.completed,

@@ -128,46 +128,30 @@ export async function deleteTaskAction(id: string) {
 
 export async function checkScheduledTasks() {
   try {
-    const now = new Date();
-    const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const now = new Date(); // Hora UTC en el servidor
     
-    // Obtener la hora actual en formato HH:MM:SS
-    const currentTime = now.toTimeString().substring(0, 8);
-    
-    // Calcular tiempo 15 minutos atrás
+    // Calcular tiempo 15 minutos atrás en UTC
     const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
-    const previousTime = fifteenMinutesAgo.toTimeString().substring(0, 8);
     
-    // Obtener tareas programadas entre hace 15 minutos y ahora
-    const tasks = await getTasksForTimeWindow(currentDay, previousTime, currentTime);
+    // Formatear horas para la ventana de tiempo
+    const currentTime = now.toISOString().substring(11, 19); // "HH:MM:SS" en UTC
+    const previousTime = fifteenMinutesAgo.toISOString().substring(11, 19);
     
-    console.log(`Verificando ${tasks.length} tareas programadas entre ${previousTime} y ${currentTime}`);
+    console.log(`Checking tasks between UTC ${previousTime} and ${currentTime}`);
+    
+    // Obtener tareas que deberían ejecutarse en esta ventana de tiempo
+    const tasks = await getTasksForTimeWindow(previousTime, currentTime);
+    
+    console.log(`Found ${tasks.length} tasks to notify`);
     
     let notifiedCount = 0;
     let failedCount = 0;
 
     for (const task of tasks) {
-      // Determinar si la tarea está programada para ahora o es de una ventana anterior
-      const scheduledTime = task.scheduledTime || "00:00:00";
-      const isDelayed = scheduledTime < currentTime;
-      
-      // Personalizar mensaje según si la notificación está retrasada o no
+      // Personalizar mensaje según la hora programada vs hora actual
       let message = `Es hora de tu tarea: ${task.title}`;
       
-      if (isDelayed) {
-        // Calcular minutos de retraso (simplificado)
-        const taskHours = parseInt(scheduledTime.split(':')[0], 10);
-        const taskMinutes = parseInt(scheduledTime.split(':')[1], 10);
-        const nowHours = now.getHours();
-        const nowMinutes = now.getMinutes();
-        
-        let minutesAgo = (nowHours - taskHours) * 60 + (nowMinutes - taskMinutes);
-        if (minutesAgo < 0) minutesAgo = 1; // Caso edge por cambio de hora
-        
-        message = `Hace ${minutesAgo} minutos era hora de tu tarea: ${task.title}`;
-      }
-      
-      // Enviar notificación
+      // Enviar notificación 
       const notification = await sendAlarmNotification(
         task.id, 
         task.userId,
