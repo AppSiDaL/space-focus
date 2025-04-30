@@ -149,7 +149,7 @@ export async function checkScheduledTasks() {
 
     for (const task of tasks) {
       // Personalizar mensaje según la hora programada vs hora actual
-      let message = `Es hora de tu tarea: ${task.title}`;
+      const message = `Es hora de tu tarea: ${task.title}`;
       
       // Enviar notificación 
       const notification = await sendAlarmNotification(
