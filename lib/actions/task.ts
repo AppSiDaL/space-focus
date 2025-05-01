@@ -1,6 +1,6 @@
 "use server";
 
-import { getTasksForTimeWindow, getTasksToNotify } from '../models/task';
+import {  getTasksToNotify } from '../models/task';
 import { sendTaskNotification } from './subscriptions';
 import { createTask, getTasksByUserId, updateTask, deleteTask } from "@/lib/models/task";
 import { revalidatePath } from "next/cache";
@@ -141,12 +141,7 @@ export async function checkScheduledTasks() {
     for (const task of tasks) {
       // Personalizar mensaje según la tarea y añadir emojis según prioridad/categoría
       const emoji = getTaskEmoji(task.category || 'default');
-      
-      // Formatear la hora de la tarea para incluirla en el mensaje
-      const formattedTime = task.scheduledTime ? 
-        task.scheduledTime.substring(0, 5) : // "HH:MM" format
-        "ahora";
-      
+
       const message = `${emoji} ¡Es hora de tu tarea: ${task.title}! ${getRandomMotivation()}`;
       
       // Enviar notificación con mejor formato
