@@ -98,8 +98,6 @@ export async function sendMockNotification(alarmId: string, message: string) {
 
 export async function sendTaskNotification(alarmId: string, userId: string, message: string) {
   try {
-    const user = await getSession()
-    // Obtener la suscripción del usuario
     //eslint-disable-next-line @typescript-eslint/no-explicit-any
     const subscriptions = (await getSubscriptionDataByUserId(userId)) as any[]
     console.log(subscriptions)
