@@ -1,16 +1,16 @@
 "use server";
 
 import { getTasksForTimeWindow } from '../models/task';
-import { sendAlarmNotification } from './subscriptions';
+import { sendTaskNotification } from './subscriptions';
 import { createTask, getTasksByUserId, updateTask, deleteTask } from "@/lib/models/task";
 import { revalidatePath } from "next/cache";
 import { TaskInput, TaskUpdateInput } from "@/types";
-import { getAuthenticatedUser } from "./auth";
+import { getSession } from "@/lib/auth/session";
 
 // Get all tasks for the authenticated user
 export async function getTasksAction() {
   try {
-    const user = await getAuthenticatedUser();
+    const user = await getSession();
     
     if (!user) {
       return { 
@@ -36,7 +36,7 @@ export async function getTasksAction() {
 // Create a new task for the authenticated user
 export async function createTaskAction(taskData: TaskInput) {
   try {
-    const user = await getAuthenticatedUser();
+    const user = await getSession();
     
     if (!user) {
       return { 
@@ -67,7 +67,7 @@ export async function createTaskAction(taskData: TaskInput) {
 // Update a task
 export async function updateTaskAction(id: string, data: TaskUpdateInput) {
   try {
-    const user = await getAuthenticatedUser();
+    const user = await getSession();
     
     if (!user) {
       return { 
@@ -98,7 +98,7 @@ export async function updateTaskAction(id: string, data: TaskUpdateInput) {
 // Delete a task
 export async function deleteTaskAction(id: string) {
   try {
-    const user = await getAuthenticatedUser();
+    const user = await getSession();
     
     if (!user) {
       return { 
@@ -152,7 +152,7 @@ export async function checkScheduledTasks() {
       const message = `Es hora de tu tarea: ${task.title}`;
       
       // Enviar notificación 
-      const notification = await sendAlarmNotification(
+      const notification = await sendTaskNotification(
         task.id, 
         task.userId,
         message

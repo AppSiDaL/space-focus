@@ -14,17 +14,19 @@ type MySQLQueryResult = {
  * Obtiene todas las suscripciones de un usuario
  */
 export async function getSubscriptionsByUserId(userId: string): Promise<Subscription[]> {
-    const subscriptions = await query(
-      "SELECT * FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC",
-      [userId]
-    ) as MySQLResultRow[];
-    
-    return subscriptions.map(subscription => ({
-        id: subscription.id as string,
-        user_id: subscription.user_id as string,
-        subscription: JSON.parse(subscription.subscription as string),
-        created_at: new Date(subscription.created_at as string)
-    }));    
+  const subscriptions = await query(
+    "SELECT * FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC",
+    [userId]
+  ) as MySQLResultRow[];
+  console.log(subscriptions);
+  return subscriptions.map(subscription => ({
+      id: subscription.id as string,
+      user_id: subscription.user_id as string,
+      subscription: typeof subscription.subscription === 'string' 
+          ? JSON.parse(subscription.subscription as string) 
+          : subscription.subscription,
+      created_at: new Date(subscription.created_at as string)
+  }));    
 }
 
 /**
@@ -90,5 +92,19 @@ export async function getSubscriptionDataByUserId(userId: string): Promise<PushS
     [userId]
   ) as MySQLResultRow[];
   
-  return subscriptions.map(item => JSON.parse(item.subscription as string) as PushSubscription);
+  return subscriptions.map(item => {
+    if (!item.subscription) {
+      return null;
+    }
+    
+    if (typeof item.subscription === 'string') {
+      return JSON.parse(item.subscription) as PushSubscription;
+    }
+    
+    if (Buffer.isBuffer(item.subscription)) {
+      return JSON.parse(item.subscription.toString()) as PushSubscription;
+    }
+    
+    return item.subscription as unknown as PushSubscription;
+  }).filter((subscription): subscription is PushSubscription => subscription !== null);
 }

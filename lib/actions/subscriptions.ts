@@ -1,7 +1,7 @@
 "use server"
 
 import webpush from "web-push"
-import { getAuthenticatedUser } from "./auth";
+import { getSession } from "@/lib/auth/session";
 import { createSubscription, deleteSubscription, getSubscriptionDataByUserId, getSubscriptionsByUserId,updateSubscription } from "../models/subscription"
 
 // Configurar VAPID para notificaciones push
@@ -15,7 +15,7 @@ webpush.setVapidDetails(
 // Guardar la suscripción del usuario
 export async function subscribeUserPush(subscription: PushSubscription) {
   try {
-    const user = await getAuthenticatedUser()
+    const user = await getSession()
 
     if (!user) {
       throw new Error("Usuario no autenticado")
@@ -42,7 +42,7 @@ export async function subscribeUserPush(subscription: PushSubscription) {
 // Eliminar la suscripción del usuario
 export async function unsubscribeUserPush() {
   try {
-    const user = await getAuthenticatedUser()
+    const user = await getSession()
 
     if (!user) {
       throw new Error("Usuario no autenticado")
@@ -58,8 +58,47 @@ export async function unsubscribeUserPush() {
   }
 }
 
-export async function sendAlarmNotification(alarmId: string, userId: string, message: string) {
+export async function sendMockNotification(alarmId: string, message: string) {
   try {
+    const user = await getSession()
+    if (!user) {
+      console.error("Usuario no autenticado")
+      return { success: false, error: "Usuario no autenticado" }
+    }
+    // Obtener la suscripción del usuario
+    //eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const subscriptions = (await getSubscriptionDataByUserId(user?.id)) as any[]
+    console.log(subscriptions)
+    if (subscriptions.length === 0) {
+      console.error("No hay suscripción disponible para el usuario:", user)
+      return { success: false, error: "No hay suscripción disponible" }
+    }
+
+
+    // Enviar la notificación
+    await webpush.sendNotification(
+      subscriptions[0],
+      JSON.stringify({
+        title: "¡Alarma!",
+        body: message,
+        icon: "/icon.png",
+        data: {
+          alarmId,
+          userId: user.id,
+        },
+      }),
+    )
+    console.log("Notificación push enviada con éxito para la alarma:", alarmId)
+    return { success: true }
+  } catch (error) {
+    console.error("Error al enviar notificación push:", error)
+    return { success: false, error: "Error al enviar notificación" }
+  }
+}
+
+export async function sendTaskNotification(alarmId: string, userId: string, message: string) {
+  try {
+    const user = await getSession()
     // Obtener la suscripción del usuario
     //eslint-disable-next-line @typescript-eslint/no-explicit-any
     const subscriptions = (await getSubscriptionDataByUserId(userId)) as any[]

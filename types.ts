@@ -58,3 +58,8 @@ export interface SubscriptionInput {
   user_id: string;
   subscription: any;
 }
+
+export type SessionPayload = {
+  userId: string | number;
+  expiresAt: Date;
+};

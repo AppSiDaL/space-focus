@@ -1,44 +1,33 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
+import { decrypt } from '@/lib/auth/session';
+import { cookies } from 'next/headers';
 
-export function middleware(request: NextRequest) {
-  // Get the pathname
-  const path = request.nextUrl.pathname;
-  
-  // Check if the path is public (login, register, etc.)
-  const isPublicPath = path === "/login" || 
-                       path === "/register" || 
-                       path === "/forgot-password" ||
-                       path === "/reset-password";
-  
-  // Get the token from the cookies
-  const token = request.cookies.get("authToken")?.value || "";
-  
-  // If the user is on a public path and has a token, redirect to home
-  if (isPublicPath && token) {
-    return NextResponse.redirect(new URL("/", request.url));
+// 1. Specify protected and public routes
+const protectedRoutes = ['/'];
+const publicRoutes = ['/login', '/signup', '/'];
+
+export default async function middleware(req: NextRequest) {
+  // 2. Check if the current route is protected or public
+  const path = req.nextUrl.pathname;
+  const isProtectedRoute = protectedRoutes.includes(path);
+  const isPublicRoute = publicRoutes.includes(path);
+
+  // 3. Decrypt the session from the cookie
+  const cookie = (await cookies()).get('session')?.value;
+  const session = await decrypt(cookie);
+
+  // 4. Redirect
+  if (isProtectedRoute && !session?.userId) {
+    return NextResponse.redirect(new URL('/login', req.nextUrl));
   }
-  
-  // If the user is not on a public path and doesn't have a token, redirect to login
-  if (!isPublicPath && !token) {
-    return NextResponse.redirect(new URL("/login", request.url));
+
+  if (
+    isPublicRoute &&
+    session?.userId &&
+    !req.nextUrl.pathname.startsWith('/')
+  ) {
+    return NextResponse.redirect(new URL('/', req.nextUrl));
   }
-  
+
   return NextResponse.next();
 }
-
-// Only run middleware on specific paths
-export const config = {
-  matcher: [
-    // Protected routes
-    '/',
-    '/tasks/:path*',
-    '/settings',
-    '/profile',
-    // Public routes for auth checking
-    '/login',
-    '/register',
-    '/forgot-password',
-    '/reset-password',
-  ],
-};
