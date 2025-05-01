@@ -60,7 +60,7 @@ export default function ActivitiesList({
   };
 
   return (
-    <div className="mb-4">
+    <div className="mb-4 flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">Activities</h2>
         <div className="flex gap-2">
@@ -89,7 +89,7 @@ export default function ActivitiesList({
       </div>
 
       {filteredTasks.length > 0 ? (
-        <div className="space-y-2 overflow-hidden">
+        <div className="space-y-2 overflow-y-auto max-h-[30vh] pr-1 custom-scrollbar">
           {filteredTasks.map((task) => (
             <div
               key={task.id}

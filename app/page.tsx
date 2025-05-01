@@ -3,6 +3,7 @@ import React from "react";
 import NotificationPermission from "@/components/NotificationPermission";
 import TimerView from "@/components/TimerView/TimerView";
 import LogoutButton from "@/components/LogoutButton";
+import TestNotification from "@/components/TestNotification";
 
 export default function Page() {
   return (
@@ -10,6 +11,7 @@ export default function Page() {
       <StarsBG />
       <header className="sticky top-0 z-10 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 ios-safe-top flex-shrink-0">
         <div className="flex justify-between items-center p-2">
+          <TestNotification />
           <h1 className="text-xl font-bold gradient-text">Space Focus</h1>
           <LogoutButton />
         </div>

@@ -106,40 +106,16 @@ export default function ActivityForm({ onClose, setTasks }: ActivityFormProps) {
     }
   };
 
-  // Handle time input change
-  const handleTimeChange = (value: string) => {
-    // Convert time format like "09:00 a.m." to "09:00:00"
-    const timeParts = value.split(" ");
-    let hours = parseInt(timeParts[0].split(":")[0]);
-    const minutes = parseInt(timeParts[0].split(":")[1]);
-
-    if (timeParts[1] === "p.m." && hours < 12) {
-      hours += 12;
-    } else if (timeParts[1] === "a.m." && hours === 12) {
-      hours = 0;
-    }
-
-    setScheduledTime(
-      `${hours.toString().padStart(2, "0")}:${minutes
-        .toString()
-        .padStart(2, "0")}:00`
-    );
+  // Handle time input change from HTML time input
+  const handleTimeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Convert from HH:MM format to HH:MM:00
+    const timeValue = e.target.value;
+    setScheduledTime(`${timeValue}:00`);
   };
 
-  // Format time for display
-  const formatTimeForDisplay = (time: string) => {
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
-
-    if (hour === 0) {
-      return `12:${minutes} a.m.`;
-    } else if (hour < 12) {
-      return `${hour}:${minutes} a.m.`;
-    } else if (hour === 12) {
-      return `12:${minutes} p.m.`;
-    } else {
-      return `${hour - 12}:${minutes} p.m.`;
-    }
+  // Get time value for HTML time input (format HH:MM)
+  const getTimeInputValue = () => {
+    return scheduledTime.substring(0, 5);
   };
 
   // Renderizar el icono de categoría
@@ -152,37 +128,56 @@ export default function ActivityForm({ onClose, setTasks }: ActivityFormProps) {
   };
 
   return (
-    <div className="bg-[#0e1525] border border-slate-800 rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-semibold">Add New Activity</h3>
+    <div className="bg-[#0e1525] border border-slate-800 rounded-lg p-4">
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="font-semibold text-sm">Add New Activity</h3>
         <button onClick={onClose} disabled={isSubmitting}>
-          <X className="text-slate-400" size={18} />
+          <X className="text-slate-400" size={16} />
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-900/30 border border-red-700 text-red-200 p-3 rounded mb-4">
+        <div className="bg-red-900/30 border border-red-700 text-red-200 p-2 rounded mb-3 text-xs">
           {error}
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-3">
+        {/* Activity Name and Duration slider on same row */}
         <div>
-          <label className="block text-sm text-slate-400 mb-1">
-            Activity Name
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="What are you working on?"
-            className="w-full bg-[#1e293b] border border-slate-700 rounded p-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-slate-400">Activity Name</label>
+            <label className="text-xs text-slate-400">{duration} min</label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {/* First column: input - exactly 50% width */}
+            <div className="col-span-1">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="What are you working on?"
+                className="w-full h-9 bg-[#1e293b] border border-slate-700 rounded p-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            {/* Second column: slider - exactly 50% width with vertical centering */}
+            <div className="col-span-1 flex items-center">
+              <input
+                type="range"
+                min="5"
+                max="60"
+                step="5"
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                className="w-full accent-indigo-500"
+              />
+            </div>
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm text-slate-400 mb-1">Category</label>
-          <div className="grid grid-cols-3 gap-3">
+          <label className="block text-xs text-slate-400 mb-1">Category</label>
+          <div className="grid grid-cols-3 gap-2">
             {TASK_CATEGORIES.map((category) => (
               <CategoryButton
                 key={category.name}
@@ -191,110 +186,104 @@ export default function ActivityForm({ onClose, setTasks }: ActivityFormProps) {
                 color={category.color}
                 active={selectedCategory === category.name}
                 onClick={() => setSelectedCategory(category.name)}
-                description={category.description}
               />
             ))}
           </div>
         </div>
 
-        {/* Duration Slider */}
+        {/* Schedule Option - Three column layout without layout shift */}
         <div>
-          <label className="block text-sm text-slate-400 mb-1">
-            Duration (minutes)
-          </label>
-          <div className="flex items-center gap-4">
-            <input
-              type="range"
-              min="5"
-              max="60"
-              step="5"
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full accent-indigo-500"
-            />
-            <div className="w-20 text-right">
-              <div className="font-medium">{duration} min</div>
+          {/* Fixed row with always-rendered columns to prevent layout shift */}
+          <div className="flex items-center relative h-7">
+            {/* Column 1: Schedule checkbox - always visible */}
+            <div className="flex items-center gap-2 w-24">
+              <input
+                type="checkbox"
+                className="w-3.5 h-3.5 accent-indigo-500"
+                id="schedule"
+                checked={isScheduled}
+                onChange={(e) => setIsScheduled(e.target.checked)}
+              />
+              <label htmlFor="schedule" className="text-xs">
+                Schedule
+              </label>
+            </div>
+
+            {/* Always render both content areas but hide with opacity to prevent layout shift */}
+            <div className="flex flex-1">
+              {/* Column 2: Time input - always rendered for layout stability */}
+              <div className="w-28 relative">
+                <div
+                  className={`relative transition-opacity duration-200 ${
+                    isScheduled ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  <input
+                    type="time"
+                    value={getTimeInputValue()}
+                    onChange={handleTimeInputChange}
+                    className={`w-full bg-[#1e293b] border border-slate-700 rounded p-1 text-sm focus:outline-none`}
+                    disabled={!isScheduled}
+                  />
+                  <Clock
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400"
+                    size={14}
+                  />
+                </div>
+              </div>
+
+              {/* Column 3: Days selection - always rendered for layout stability */}
+              <div className="flex-1 ml-auto">
+                <div
+                  className={`flex flex-wrap gap-1 justify-end transition-opacity duration-200 ${
+                    isScheduled ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => {
+                    const fullDay = [
+                      "Sun",
+                      "Mon",
+                      "Tue",
+                      "Wed",
+                      "Thu",
+                      "Fri",
+                      "Sat",
+                    ][index];
+                    return (
+                      <button
+                        key={fullDay}
+                        className={`w-6 h-6 rounded-full text-xs flex items-center justify-center transition-colors ${
+                          selectedDays.includes(fullDay)
+                            ? "bg-indigo-500 text-white"
+                            : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                        }`}
+                        onClick={() => toggleDay(fullDay)}
+                        type="button"
+                        disabled={!isScheduled}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Schedule Option */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              className="w-4 h-4 accent-indigo-500"
-              id="schedule"
-              checked={isScheduled}
-              onChange={(e) => setIsScheduled(e.target.checked)}
-            />
-            <label htmlFor="schedule" className="text-sm">
-              Schedule this activity
-            </label>
-          </div>
-
-          {isScheduled && (
-            <>
-              {/* Time Selection */}
-              <div className="pl-6">
-                <label className="block text-sm text-slate-400 mb-1">
-                  Time
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={formatTimeForDisplay(scheduledTime)}
-                    onChange={(e) => handleTimeChange(e.target.value)}
-                    className="w-full bg-[#1e293b] border border-slate-700 rounded p-2 focus:outline-none"
-                  />
-                  <Clock
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400"
-                    size={16}
-                  />
-                </div>
-              </div>
-
-              {/* Days Selection */}
-              <div className="pl-6">
-                <label className="block text-sm text-slate-400 mb-1">
-                  Days
-                </label>
-                <div className="flex flex-wrap gap-1">
-                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                    (day) => (
-                      <button
-                        key={day}
-                        className={`w-10 h-10 rounded-full text-xs flex items-center justify-center transition-colors ${
-                          selectedDays.includes(day)
-                            ? "bg-indigo-500 text-white"
-                            : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                        }`}
-                        onClick={() => toggleDay(day)}
-                        type="button"
-                      >
-                        {day}
-                      </button>
-                    )
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
         {/* Form Buttons */}
-        <div className="flex gap-3 pt-4">
+        <div className="flex gap-2 pt-2">
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="flex-1 py-2 px-4 bg-slate-800 hover:bg-slate-700 transition-colors rounded-lg disabled:opacity-50"
+            className="flex-1 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 transition-colors rounded-lg disabled:opacity-50 text-sm"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex-1 py-2 px-4 bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 transition-colors rounded-lg disabled:opacity-50"
+            className="flex-1 py-1.5 px-3 bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 transition-colors rounded-lg disabled:opacity-50 text-sm"
           >
             {isSubmitting ? "Creating..." : "Add Activity"}
           </button>

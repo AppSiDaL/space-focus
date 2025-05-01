@@ -6,7 +6,6 @@ interface CategoryButtonProps {
   color: string;
   active: boolean;
   onClick: () => void;
-  description?: string;
 }
 
 export default function CategoryButton({
@@ -15,7 +14,6 @@ export default function CategoryButton({
   color,
   active,
   onClick,
-  description,
 }: CategoryButtonProps) {
   return (
     <button
@@ -27,11 +25,10 @@ export default function CategoryButton({
       onClick={onClick}
       type="button"
       aria-label={`Select ${name} category`}
-      title={description ? `${name} - ${description}` : name}
+      title={name}
     >
       <div className="text-center mb-1">{icon}</div>
       <div className="text-xs font-medium">{name}</div>
-      {description && <div className="text-xs opacity-75">{description}</div>}
     </button>
   );
 }

@@ -6,7 +6,6 @@ import ActivitiesList from "./ActivitiesList";
 import ActivityFormWrapper from "./ActivityFormWrapper";
 import { Task } from "@/types";
 import { getTasksAction, deleteTaskAction } from "@/lib/actions/task";
-import { sendMockNotification } from "@/lib/actions/subscriptions";
 
 export default function TimerView() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -14,7 +13,6 @@ export default function TimerView() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [, setIsDeleting] = useState(false);
-  const [isSendingNotification, setIsSendingNotification] = useState(false);
 
   // Cargar tareas al montar el componente
   useEffect(() => {
@@ -41,31 +39,6 @@ export default function TimerView() {
 
     loadTasks();
   }, []);
-
-  // Función para enviar una notificación de prueba
-  const handleTestNotification = async () => {
-    try {
-      setIsSendingNotification(true);
-
-      // Generar un ID de tarea temporal para la notificación de prueba
-      const testTaskId = "test-notification-" + Date.now();
-
-      const result = await sendMockNotification(
-        testTaskId,
-        "🔔 Notificación de prueba - " + new Date().toLocaleTimeString()
-      );
-
-      if (result.success) {
-        console.log("Notificación enviada correctamente:", result);
-      } else {
-        console.log("Error al enviar notificación:", result.error);
-      }
-    } catch (error) {
-      console.error("Error al enviar notificación:", error);
-    } finally {
-      setIsSendingNotification(false);
-    }
-  };
 
   // Función para manejar la eliminación de tareas
   const handleTaskDelete = async (taskId: string) => {
@@ -102,29 +75,6 @@ export default function TimerView() {
   return (
     <>
       <TimerSection selectedTask={selectedTask} />
-
-      {/* Botón de prueba de notificación mejorado */}
-      <div className="mb-4">
-        <button
-          onClick={handleTestNotification}
-          disabled={isSendingNotification}
-          className={`py-2 px-4 rounded-md text-sm flex items-center gap-2 transition
-            ${
-              isSendingNotification
-                ? "bg-slate-700 cursor-not-allowed"
-                : "bg-indigo-600 hover:bg-indigo-500"
-            }`}
-        >
-          {isSendingNotification ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              Enviando...
-            </>
-          ) : (
-            <>🔔 Enviar notificación de prueba</>
-          )}
-        </button>
-      </div>
 
       {isLoading ? (
         <div className="flex justify-center py-8">
