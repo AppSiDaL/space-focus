@@ -1,6 +1,6 @@
 "use server";
 
-import { getTasksForTimeWindow } from '../models/task';
+import { getTasksForTimeWindow, getTasksToNotify } from '../models/task';
 import { sendTaskNotification } from './subscriptions';
 import { createTask, getTasksByUserId, updateTask, deleteTask } from "@/lib/models/task";
 import { revalidatePath } from "next/cache";
@@ -128,30 +128,28 @@ export async function deleteTaskAction(id: string) {
 
 export async function checkScheduledTasks() {
   try {
-    const now = new Date(); // Hora UTC en el servidor
+    const now = new Date();
     
-    // Calcular tiempo 15 minutos atrás en UTC
-    const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
+    // Usar la nueva función específica para notificaciones
+    const tasks = await getTasksToNotify();
     
-    // Formatear horas para la ventana de tiempo
-    const currentTime = now.toISOString().substring(11, 19); // "HH:MM:SS" en UTC
-    const previousTime = fifteenMinutesAgo.toISOString().substring(11, 19);
-    
-    console.log(`Checking tasks between UTC ${previousTime} and ${currentTime}`);
-    
-    // Obtener tareas que deberían ejecutarse en esta ventana de tiempo
-    const tasks = await getTasksForTimeWindow(previousTime, currentTime);
-    
-    console.log(`Found ${tasks.length} tasks to notify`);
+    console.log(`Found ${tasks.length} tasks to notify based on user time zones`);
     
     let notifiedCount = 0;
     let failedCount = 0;
 
     for (const task of tasks) {
-      // Personalizar mensaje según la hora programada vs hora actual
-      const message = `Es hora de tu tarea: ${task.title}`;
+      // Personalizar mensaje según la tarea y añadir emojis según prioridad/categoría
+      const emoji = getTaskEmoji(task.category || 'default');
       
-      // Enviar notificación 
+      // Formatear la hora de la tarea para incluirla en el mensaje
+      const formattedTime = task.scheduledTime ? 
+        task.scheduledTime.substring(0, 5) : // "HH:MM" format
+        "ahora";
+      
+      const message = `${emoji} ¡Es hora de tu tarea: ${task.title}! ${getRandomMotivation()}`;
+      
+      // Enviar notificación con mejor formato
       const notification = await sendTaskNotification(
         task.id, 
         task.userId,
@@ -169,10 +167,34 @@ export async function checkScheduledTasks() {
       processed: tasks.length,
       notified: notifiedCount,
       failed: failedCount,
-      timeWindow: `${previousTime} - ${currentTime}`
+      timestamp: now.toISOString()
     };
   } catch (error) {
     console.error("Error al verificar tareas programadas:", error);
     throw error;
   }
+}
+
+// Funciones de apoyo para mejorar las notificaciones
+function getTaskEmoji(category: string): string {
+  // Devolver emoji según categoría
+  const emojiMap: Record<string, string> = {
+    work: "💼",
+    study: "📚",
+    fitness: "💪",
+    family: "👨‍👩‍👧",
+    default: "✅"
+  };
+  return emojiMap[category] || emojiMap.default;
+}
+
+function getRandomMotivation(): string {
+  const phrases = [
+    "¡Tú puedes lograrlo!",
+    "¡A por ello!",
+    "Un paso más hacia tus metas",
+    "Enfócate y triunfa",
+    "El momento es ahora"
+  ];
+  return phrases[Math.floor(Math.random() * phrases.length)];
 }

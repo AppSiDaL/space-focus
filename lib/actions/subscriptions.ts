@@ -96,35 +96,47 @@ export async function sendMockNotification(alarmId: string, message: string) {
   }
 }
 
-export async function sendTaskNotification(alarmId: string, userId: string, message: string) {
+export async function sendTaskNotification(taskId: string, userId: string, message: string) {
   try {
     //eslint-disable-next-line @typescript-eslint/no-explicit-any
     const subscriptions = (await getSubscriptionDataByUserId(userId)) as any[]
-    console.log(subscriptions)
+    
     if (subscriptions.length === 0) {
       console.error("No hay suscripción disponible para el usuario:", userId)
       return { success: false, error: "No hay suscripción disponible" }
     }
 
-
-    // Enviar la notificación
+    // Enviar notificación con mejor formato y vibración
     await webpush.sendNotification(
       subscriptions[0],
       JSON.stringify({
-        title: "¡Alarma!",
+        title: "✨ ¡SpaceFocus te recuerda!",
         body: message,
         icon: "/icon.png",
+        badge: "/badge.png", 
+        vibrate: [100, 50, 100, 50, 100],
         data: {
-          alarmId,
+          taskId,
           userId,
+          url: `/tasks/${taskId}`,
         },
+        actions: [
+          {
+            action: 'complete',
+            title: '✅ Completar'
+          },
+          {
+            action: 'postpone',
+            title: '⏰ Posponer'
+          }
+        ]
       }),
     )
-    console.log("Notificación push enviada con éxito para la alarma:", alarmId)
+    
+    console.log("Notificación push enviada con éxito para la tarea:", taskId)
     return { success: true }
   } catch (error) {
     console.error("Error al enviar notificación push:", error)
     return { success: false, error: "Error al enviar notificación" }
   }
 }
-

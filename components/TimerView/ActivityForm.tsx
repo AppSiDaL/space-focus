@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Clock } from "lucide-react";
 import CategoryButton from "./CategoryButton";
 import { Task, TaskInput } from "@/types";
@@ -11,17 +11,22 @@ import { TASK_CATEGORIES } from "@/lib/const";
 interface ActivityFormProps {
   setTasks?: React.Dispatch<React.SetStateAction<Task[]>>;
   onClose: () => void;
+  isOpen: boolean;
 }
 
-export default function ActivityForm({ onClose, setTasks }: ActivityFormProps) {
+export default function ActivityForm({
+  onClose,
+  setTasks,
+  isOpen,
+}: ActivityFormProps) {
   const router = useRouter();
 
   // Form state variables
   const [title, setTitle] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Reading");
-  const [duration, setDuration] = useState(25); // Default to one pomodoro
+  const [duration, setDuration] = useState(20);
   const [isScheduled, setIsScheduled] = useState(true);
-  const [scheduledTime, setScheduledTime] = useState("09:00:00"); // in format HH:MM:SS
+  const [scheduledTime, setScheduledTime] = useState("09:00:00");
   const [selectedDays, setSelectedDays] = useState([
     "Mon",
     "Wed",
@@ -30,6 +35,27 @@ export default function ActivityForm({ onClose, setTasks }: ActivityFormProps) {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // Add escape key listener to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+
+    // Prevent scrolling when modal is open
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "auto";
+    };
+  }, [isOpen, onClose]);
 
   // Helper to convert day abbreviations to full names
   const mapDayToFull = (day: string): string => {
@@ -76,7 +102,6 @@ export default function ActivityForm({ onClose, setTasks }: ActivityFormProps) {
         title: title,
         durationMinutes: duration,
         category: selectedCategory,
-        // Una actividad es recurrente si está programada y tiene días seleccionados
         isRecurring: isScheduled && selectedDays.length > 0,
         scheduledTime: isScheduled ? scheduledTime : null,
         scheduledDays: isScheduled ? selectedDays.map(mapDayToFull) : null,
@@ -89,6 +114,14 @@ export default function ActivityForm({ onClose, setTasks }: ActivityFormProps) {
         if (setTasks && result.task) {
           setTasks((prev) => [...prev, result.task as Task]);
         }
+
+        // Reset form
+        setTitle("");
+        setSelectedCategory("Reading");
+        setDuration(20);
+        setIsScheduled(true);
+        setScheduledTime("09:00:00");
+        setSelectedDays(["Mon", "Wed", "Thu", "Fri"]);
 
         // Close the form
         onClose();
@@ -121,172 +154,182 @@ export default function ActivityForm({ onClose, setTasks }: ActivityFormProps) {
   // Renderizar el icono de categoría
   const renderCategoryIcon = (iconValue: string) => {
     if (iconValue === "</>") {
-      // Para el caso especial del icono de código que no es un emoji
       return <span className="text-center">{iconValue}</span>;
     }
     return <span className="text-xl">{iconValue}</span>;
   };
 
+  // Don't render anything if not open
+  if (!isOpen) return null;
+
   return (
-    <div className="bg-[#0e1525] border border-slate-800 rounded-lg p-4">
-      <div className="flex justify-between items-center mb-3">
-        <h3 className="font-semibold text-sm">Add New Activity</h3>
-        <button onClick={onClose} disabled={isSubmitting}>
-          <X className="text-slate-400" size={16} />
-        </button>
-      </div>
-
-      {error && (
-        <div className="bg-red-900/30 border border-red-700 text-red-200 p-2 rounded mb-3 text-xs">
-          {error}
-        </div>
-      )}
-
-      <div className="space-y-3">
-        {/* Activity Name and Duration slider on same row */}
-        <div>
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-slate-400">Activity Name</label>
-            <label className="text-xs text-slate-400">{duration} min</label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {/* First column: input - exactly 50% width */}
-            <div className="col-span-1">
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="What are you working on?"
-                className="w-full h-9 bg-[#1e293b] border border-slate-700 rounded p-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-            {/* Second column: slider - exactly 50% width with vertical centering */}
-            <div className="col-span-1 flex items-center">
-              <input
-                type="range"
-                min="5"
-                max="60"
-                step="5"
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
-                className="w-full accent-indigo-500"
-              />
-            </div>
-          </div>
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+      <div
+        className="bg-[#0e1525] border border-slate-800 rounded-lg p-6 w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header with more spacing */}
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="font-semibold text-lg">Add New Activity</h3>
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="p-1 hover:bg-slate-800 rounded-full transition-colors"
+          >
+            <X className="text-slate-400" size={18} />
+          </button>
         </div>
 
-        <div>
-          <label className="block text-xs text-slate-400 mb-1">Category</label>
-          <div className="grid grid-cols-3 gap-2">
-            {TASK_CATEGORIES.map((category) => (
-              <CategoryButton
-                key={category.name}
-                name={category.name}
-                icon={renderCategoryIcon(category.icon)}
-                color={category.color}
-                active={selectedCategory === category.name}
-                onClick={() => setSelectedCategory(category.name)}
-              />
-            ))}
+        {error && (
+          <div className="bg-red-900/30 border border-red-700 text-red-200 p-3 rounded mb-4 text-xs">
+            {error}
           </div>
-        </div>
+        )}
 
-        {/* Schedule Option - Three column layout without layout shift */}
-        <div>
-          {/* Fixed row with always-rendered columns to prevent layout shift */}
-          <div className="flex items-center relative h-7">
-            {/* Column 1: Schedule checkbox - always visible */}
-            <div className="flex items-center gap-2 w-24">
-              <input
-                type="checkbox"
-                className="w-3.5 h-3.5 accent-indigo-500"
-                id="schedule"
-                checked={isScheduled}
-                onChange={(e) => setIsScheduled(e.target.checked)}
-              />
-              <label htmlFor="schedule" className="text-xs">
-                Schedule
+        <div className="space-y-5">
+          {/* Activity Name field with duration display improved */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm text-slate-300 font-medium">
+                Activity Name
               </label>
+              <div className="bg-indigo-500/10 px-3 py-1 rounded-full">
+                <label className="text-sm text-indigo-300 font-medium">
+                  {duration} min
+                </label>
+              </div>
             </div>
 
-            {/* Always render both content areas but hide with opacity to prevent layout shift */}
-            <div className="flex flex-1">
-              {/* Column 2: Time input - always rendered for layout stability */}
-              <div className="w-28 relative">
-                <div
-                  className={`relative transition-opacity duration-200 ${
-                    isScheduled ? "opacity-100" : "opacity-0"
-                  }`}
+            {/* Input and slider in their own rows for better spacing */}
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="What are you working on?"
+              className="w-full h-10 bg-[#1e293b] border border-slate-700 rounded p-2.5 text-base focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+
+            <input
+              type="range"
+              min="10"
+              max="120"
+              step="10"
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className="w-full accent-indigo-500 h-2 mt-2"
+            />
+          </div>
+
+          {/* Categories with more spacing */}
+          <div className="space-y-3 pt-1">
+            <label className="text-sm text-slate-300 font-medium">
+              Category
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {TASK_CATEGORIES.map((category) => (
+                <CategoryButton
+                  key={category.name}
+                  name={category.name}
+                  icon={renderCategoryIcon(category.icon)}
+                  color={category.color}
+                  active={selectedCategory === category.name}
+                  onClick={() => setSelectedCategory(category.name)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Schedule Option with improved layout */}
+          <div className="space-y-4 pt-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 accent-indigo-500"
+                  id="schedule"
+                  checked={isScheduled}
+                  onChange={(e) => setIsScheduled(e.target.checked)}
+                />
+                <label
+                  htmlFor="schedule"
+                  className="text-sm text-slate-300 font-medium"
                 >
+                  Schedule
+                </label>
+              </div>
+
+              {/* Time picker with better styling */}
+              <div
+                className={`transition-opacity duration-200 ${
+                  isScheduled ? "opacity-100" : "opacity-50 pointer-events-none"
+                }`}
+              >
+                <div className="relative">
                   <input
                     type="time"
                     value={getTimeInputValue()}
                     onChange={handleTimeInputChange}
-                    className={`w-full bg-[#1e293b] border border-slate-700 rounded p-1 text-sm focus:outline-none`}
+                    className="w-32 bg-[#1e293b] border border-slate-700 rounded p-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     disabled={!isScheduled}
                   />
                   <Clock
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400"
-                    size={14}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                    size={16}
                   />
                 </div>
               </div>
-
-              {/* Column 3: Days selection - always rendered for layout stability */}
-              <div className="flex-1 ml-auto">
-                <div
-                  className={`flex flex-wrap gap-1 justify-end transition-opacity duration-200 ${
-                    isScheduled ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => {
-                    const fullDay = [
-                      "Sun",
-                      "Mon",
-                      "Tue",
-                      "Wed",
-                      "Thu",
-                      "Fri",
-                      "Sat",
-                    ][index];
-                    return (
-                      <button
-                        key={fullDay}
-                        className={`w-6 h-6 rounded-full text-xs flex items-center justify-center transition-colors ${
-                          selectedDays.includes(fullDay)
-                            ? "bg-indigo-500 text-white"
-                            : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                        }`}
-                        onClick={() => toggleDay(fullDay)}
-                        type="button"
-                        disabled={!isScheduled}
-                      >
-                        {day}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Form Buttons */}
-        <div className="flex gap-2 pt-2">
-          <button
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="flex-1 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 transition-colors rounded-lg disabled:opacity-50 text-sm"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="flex-1 py-1.5 px-3 bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 transition-colors rounded-lg disabled:opacity-50 text-sm"
-          >
-            {isSubmitting ? "Creating..." : "Add Activity"}
-          </button>
+            {/* Day selection buttons with improved spacing and size */}
+            {isScheduled && (
+              <div className="flex justify-between gap-2 py-2">
+                {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => {
+                  const fullDay = [
+                    "Sun",
+                    "Mon",
+                    "Tue",
+                    "Wed",
+                    "Thu",
+                    "Fri",
+                    "Sat",
+                  ][index];
+                  return (
+                    <button
+                      key={fullDay}
+                      className={`w-9 h-9 rounded-full text-sm flex items-center justify-center transition-colors ${
+                        selectedDays.includes(fullDay)
+                          ? "bg-indigo-500 text-white"
+                          : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                      }`}
+                      onClick={() => toggleDay(fullDay)}
+                      type="button"
+                      disabled={!isScheduled}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Form Buttons with better spacing */}
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="flex-1 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 transition-colors rounded-lg disabled:opacity-50 text-base font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="flex-1 py-2.5 px-4 bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 transition-colors rounded-lg disabled:opacity-50 text-base font-medium"
+            >
+              {isSubmitting ? "Creating..." : "Add Activity"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

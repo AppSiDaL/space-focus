@@ -391,3 +391,96 @@ export async function getTasksForTimeWindow(
     throw error;
   }
 }
+
+
+/**
+ * Obtiene tareas que deben notificarse en este momento,
+ * considerando la zona horaria de cada usuario
+ */
+export async function getTasksToNotify(): Promise<(Task & { userTimeZone: string })[]> {
+  try {
+    // Obtener todas las tareas recurrentes con información de zona horaria
+    const tasks = await query(`
+      SELECT t.*, u.id as userId, u.timezone as userTimeZone
+      FROM tasks t
+      JOIN users u ON t.userId = u.id
+      WHERE t.isRecurring = 1
+      AND (t.lastNotified IS NULL OR DATE(t.lastNotified) < CURDATE())
+    `) as (MySQLResultRow & { userTimeZone: string })[];
+    
+    // Filtrar tareas que deben ejecutarse ahora según la zona horaria del usuario
+    const now = new Date();
+    
+    const tasksToNotify = tasks.filter(task => {
+      // Usar la zona horaria del usuario, o una por defecto si no existe
+      const userTz = task.userTimeZone || 'America/Mexico_City';
+      
+      try {
+        // Obtener fecha/hora actual en la zona horaria del usuario
+        const userLocalTime = new Date(now.toLocaleString('en-US', { timeZone: userTz }));
+        
+        // Obtener día de la semana en la zona horaria del usuario
+        const userDay = userLocalTime.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        
+        // Verificar si la tarea está programada para este día
+        const scheduledDays = task.scheduledDays ? JSON.parse(task.scheduledDays as string) : [];
+        if (!scheduledDays.includes(userDay)) return false;
+        
+        // Verificar si es hora de ejecutar la tarea (con margen de 15 minutos)
+        if (!task.scheduledTime) return false;
+        
+        // Obtener la hora programada de la tarea
+        const [scheduledHour, scheduledMinute] = (task.scheduledTime as string).split(':').map(Number);
+        
+        // Hora actual en zona horaria del usuario
+        const userHour = userLocalTime.getHours();
+        const userMinute = userLocalTime.getMinutes();
+        
+        // Convertir ambos tiempos a minutos para comparación
+        const scheduledTimeInMinutes = scheduledHour * 60 + scheduledMinute;
+        const userTimeInMinutes = userHour * 60 + userMinute;
+        
+        // Verificar si estamos dentro del margen de 15 minutos (antes o después)
+        const timeDiff = Math.abs(scheduledTimeInMinutes - userTimeInMinutes);
+        return timeDiff <= 15;
+      } catch (error) {
+        console.error(`Error al procesar zona horaria ${userTz}:`, error);
+        return false;
+      }
+    });
+    
+    // Marcar estas tareas como notificadas
+    if (tasksToNotify.length > 0) {
+      const nowStr = now.toISOString().slice(0, 19).replace('T', ' ');
+      
+      for (const task of tasksToNotify) {
+        const taskId = Buffer.isBuffer(task.id) ? task.id.toString() : task.id as string;
+        await query(
+          `UPDATE tasks SET lastNotified = ? WHERE id = ?`,
+          [nowStr, taskId]
+        );
+      }
+    }
+    
+    // Devolver las tareas en formato extendido con zona horaria
+    return tasksToNotify.map(task => ({
+      id: Buffer.isBuffer(task.id) ? task.id.toString() : task.id as string,
+      userId: Buffer.isBuffer(task.userId) ? task.userId.toString() : task.userId as string,
+      title: task.title as string,
+      category: task.category as string | null,
+      completed: !!task.completed,
+      durationMinutes: task.durationMinutes as number,
+      isRecurring: !!task.isRecurring,
+      scheduledTime: task.scheduledTime as string | null,
+      scheduledDays: task.scheduledDays ? JSON.parse(task.scheduledDays as string) : null,
+      createdAt: new Date(task.createdAt as string),
+      updatedAt: new Date(task.updatedAt as string),
+      lastCompleted: task.lastCompleted ? new Date(task.lastCompleted as string) : null,
+      lastNotified: task.lastNotified ? new Date(task.lastNotified as string) : null,
+      userTimeZone: task.userTimeZone
+    }));
+  } catch (error) {
+    console.error("Error al obtener tareas para notificar:", error);
+    throw error;
+  }
+}

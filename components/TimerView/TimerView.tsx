@@ -73,7 +73,7 @@ export default function TimerView() {
   };
 
   return (
-    <>
+    <div className="flex flex-col h-full">
       <TimerSection selectedTask={selectedTask} />
 
       {isLoading ? (
@@ -97,6 +97,6 @@ export default function TimerView() {
       )}
 
       <ActivityFormWrapper setTasks={setTasks} />
-    </>
+    </div>
   );
 }

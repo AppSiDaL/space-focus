@@ -11,23 +11,22 @@ interface ActivityFormWrapperProps {
 export default function ActivityFormWrapper({
   setTasks,
 }: ActivityFormWrapperProps) {
-  const [showAddActivity, setShowAddActivity] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  if (!showAddActivity) {
-    return (
+  return (
+    <>
       <button
-        onClick={() => setShowAddActivity(true)}
+        onClick={() => setIsModalOpen(true)}
         className="w-full py-3 px-4 bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 transition-colors rounded-lg disabled:opacity-50"
       >
         Add New Activity
       </button>
-    );
-  }
 
-  return (
-    <ActivityForm
-      setTasks={setTasks}
-      onClose={() => setShowAddActivity(false)}
-    />
+      <ActivityForm
+        setTasks={setTasks}
+        onClose={() => setIsModalOpen(false)}
+        isOpen={isModalOpen}
+      />
+    </>
   );
 }
