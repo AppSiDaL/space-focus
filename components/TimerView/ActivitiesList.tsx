@@ -1,9 +1,7 @@
 import React from "react";
-import { CalendarCheck, Play, Edit, Trash2 } from "lucide-react";
+import { CalendarCheck } from "lucide-react";
 import { Task } from "@/types";
-import { TASK_CATEGORIES } from "@/lib/const";
 import Activity from "./Activity";
-import { on } from "events";
 
 interface ActivitiesListProps {
   tasks: Task[];
