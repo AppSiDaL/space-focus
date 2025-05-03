@@ -151,3 +151,12 @@ export async function migrateTimezoneField(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Revisar si un correo electrónico ya está registrado
+ */
+export async function isEmailRegistered(email: string): Promise<boolean> {
+  const result = (await query("SELECT COUNT(*) as count FROM users WHERE email = ?", [email])) as MySQLResultRow[];
+  
+  return (result[0] as unknown as MySQLCountResult).count > 0;
+}

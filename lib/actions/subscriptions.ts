@@ -113,7 +113,7 @@ export async function sendTaskNotification(taskId: string, userId: string, messa
         title: "✨ ¡SpaceFocus te recuerda!",
         body: message,
         icon: "/icon.png",
-        badge: "/badge.png", 
+        badge: "/badge.png",
         vibrate: [100, 50, 100, 50, 100],
         data: {
           taskId,

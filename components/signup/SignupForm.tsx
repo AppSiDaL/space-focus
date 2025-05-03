@@ -1,13 +1,26 @@
 "use client";
 
-import { login } from "@/lib/auth/login";
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { useEffect, useState } from "react";
 import Card from "../Card";
+import { signup } from "@/lib/auth/login";
 
-export function LoginForm() {
-  const [state, action] = useActionState(login, undefined);
+export function SignupForm() {
+  const [state, action] = useActionState(signup, undefined);
+  const [timezone, setTimezone] = useState("");
+
+  // Detect user's timezone when component mounts
+  useEffect(() => {
+    try {
+      const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      setTimezone(detectedTimezone);
+    } catch (error) {
+      console.error("Error detecting timezone:", error);
+      setTimezone("UTC"); // Fallback to UTC
+    }
+  }, []);
 
   return (
     <Card className="p-6">
@@ -18,6 +31,27 @@ export function LoginForm() {
       )}
 
       <form className="space-y-6" action={action}>
+        <div>
+          <label
+            htmlFor="name"
+            className="block text-sm font-medium text-slate-300"
+          >
+            Full name
+          </label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            autoComplete="name"
+            required
+            className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="John Doe"
+          />
+          {state?.errors?.name && (
+            <p className="text-sm text-red-500 mt-1">{state.errors.name}</p>
+          )}
+        </div>
+
         <div>
           <label
             htmlFor="email"
@@ -50,7 +84,7 @@ export function LoginForm() {
             id="password"
             name="password"
             type="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
             required
             className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
             placeholder="••••••••"
@@ -60,19 +94,34 @@ export function LoginForm() {
           )}
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="text-sm">
-            <Link
-              href="/forgot-password"
-              className="font-medium text-purple-500 hover:text-purple-400"
-            >
-              Forgot your password?
-            </Link>
-          </div>
+        <div>
+          <label
+            htmlFor="confirmPassword"
+            className="block text-sm font-medium text-slate-300"
+          >
+            Confirm password
+          </label>
+          <input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            autoComplete="new-password"
+            required
+            className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="••••••••"
+          />
+          {state?.errors?.confirmPassword && (
+            <p className="text-sm text-red-500 mt-1">
+              {state.errors.confirmPassword}
+            </p>
+          )}
         </div>
 
+        {/* Hidden input field for timezone */}
+        <input type="hidden" name="timezone" value={timezone} />
+
         <div>
-          <LoginButton />
+          <SignupButton />
         </div>
       </form>
 
@@ -87,12 +136,12 @@ export function LoginForm() {
         </div>
         <div className="mt-6 text-center text-sm">
           <p className="text-slate-400">
-            Don&apos;t have an account?{" "}
+            Already have an account?{" "}
             <Link
-              href="/signup"
+              href="/login"
               className="font-medium text-purple-400 hover:text-purple-300"
             >
-              Sign up
+              Sign in
             </Link>
           </p>
         </div>
@@ -101,7 +150,7 @@ export function LoginForm() {
   );
 }
 
-export function LoginButton() {
+function SignupButton() {
   const { pending } = useFormStatus();
 
   return (
@@ -110,7 +159,7 @@ export function LoginButton() {
       type="submit"
       className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-slate-900 mt-4"
     >
-      {pending ? "Signing in..." : "Sign in"}
+      {pending ? "Creating account..." : "Sign up"}
     </button>
   );
 }
