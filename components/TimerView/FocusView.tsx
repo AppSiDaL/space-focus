@@ -7,6 +7,25 @@ import Rocket from "./Rocket";
 import { Task } from "@/types";
 import StarsBG from "../StarsBG";
 
+interface WakeLockSentinel extends EventTarget {
+  released: boolean;
+  type: "screen";
+  release(): Promise<void>;
+  addEventListener(type: "release", listener: () => void): void;
+  removeEventListener(type: "release", listener: () => void): void;
+}
+
+interface WakeLock {
+  request(type: "screen"): Promise<WakeLockSentinel>;
+}
+
+// Use module augmentation to extend the Navigator interface
+declare global {
+  interface Navigator {
+    WakeLock: WakeLock;
+  }
+}
+
 const FOCUS_QUOTES = [
   "Focus is the art of knowing what to ignore.",
   "The successful warrior is the average person with laser-like focus.",
@@ -39,6 +58,8 @@ export default function FocusView({
   const [remainingTime, setRemainingTime] = useState(initialTime);
   const [isPaused, setIsPaused] = useState(false);
   const [quote, setQuote] = useState("");
+  const [, setIsComplete] = useState(false);
+  const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null);
 
   // Use spring physics for smoother motion
   const rocketX = useSpring(0, { stiffness: 100, damping: 30 });
@@ -69,6 +90,56 @@ export default function FocusView({
 
     return () => clearInterval(quoteInterval);
   }, []);
+
+  // Request and manage wake lock
+  useEffect(() => {
+    let wakeLockObj: WakeLockSentinel | null = null;
+
+    const requestWakeLock = async () => {
+      if (!isPaused && "wakeLock" in navigator) {
+        try {
+          wakeLockObj = await navigator.wakeLock.request("screen");
+          setWakeLock(wakeLockObj);
+
+          wakeLockObj.addEventListener("release", () => {
+            console.log("Wake Lock was released");
+            setWakeLock(null);
+          });
+
+          console.log("Wake Lock is active");
+        } catch (err) {
+          console.error("Wake Lock request failed:", err);
+        }
+      }
+    };
+
+    // Request wake lock when component mounts and timer is not paused
+    if (!isPaused) {
+      requestWakeLock();
+    } else if (wakeLock) {
+      // Release wake lock when timer is paused
+      wakeLock.release().then(() => {
+        setWakeLock(null);
+      });
+    }
+
+    // Handle visibility change (when user switches tabs or minimizes window)
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === "visible" && !isPaused) {
+        await requestWakeLock();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      // Clean up wake lock and event listener when component unmounts
+      if (wakeLockObj) {
+        wakeLockObj.release().catch((err: Error) => console.error(err));
+      }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isPaused, wakeLock]);
 
   // Set up the rocket movement with smoother animation
   useEffect(() => {
@@ -116,6 +187,9 @@ export default function FocusView({
     };
   }, [rocketX, rocketY]);
 
+  // Inside the useEffect for the timer:
+  const [timerFinished, setTimerFinished] = useState(false);
+
   useEffect(() => {
     if (!activity || isPaused) return;
 
@@ -123,6 +197,8 @@ export default function FocusView({
       setRemainingTime((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          setIsComplete(true);
+          setTimerFinished(true); // Marca que el timer ha terminado
           return 0;
         }
         return prev - 1;
@@ -132,6 +208,15 @@ export default function FocusView({
     return () => clearInterval(timer);
   }, [activity, isPaused]);
 
+  // Efecto separado para manejar la salida
+  useEffect(() => {
+    if (timerFinished) {
+      // Pequeño delay antes de salir
+      const exitTimeout = setTimeout(() => onExit(), 1000);
+      return () => clearTimeout(exitTimeout);
+    }
+  }, [timerFinished, onExit]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -139,6 +224,29 @@ export default function FocusView({
   };
 
   const togglePause = () => {
+    // When pausing/unpausing, handle wake lock
+    if (isPaused) {
+      // Resuming from pause - try to request wake lock again
+      if ("wakeLock" in navigator) {
+        navigator.wakeLock
+          .request("screen")
+          .then((sentinel) => setWakeLock(sentinel))
+          .catch((err) =>
+            console.error("Failed to re-acquire wake lock:", err)
+          );
+      }
+    } else {
+      // Pausing - release wake lock if we have one
+      if (wakeLock) {
+        wakeLock
+          .release()
+          .then(() => setWakeLock(null))
+          .catch((err: unknown) =>
+            console.error("Failed to release wake lock:", err)
+          );
+      }
+    }
+
     setIsPaused(!isPaused);
   };
 

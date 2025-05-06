@@ -15,12 +15,14 @@ import FocusView from "./FocusView";
 
 interface TimerSectionProps {
   selectedTask: Task | null;
+  onTaskComplete?: (taskId: string) => void;
   onDeleteTask?: (taskId: string) => void;
 }
 
 export default function TimerSection({
   selectedTask,
   onDeleteTask,
+  onTaskComplete,
 }: TimerSectionProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
@@ -63,6 +65,10 @@ export default function TimerSection({
   const handleExitFocus = () => {
     setIsFocusMode(false);
     setIsRunning(false);
+
+    if (selectedTask && onTaskComplete) {
+      onTaskComplete(selectedTask.id);
+    }
   };
 
   const handleDelete = () => {

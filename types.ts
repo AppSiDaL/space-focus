@@ -63,3 +63,36 @@ export type SessionPayload = {
   userId: string | number;
   expiresAt: Date;
 };
+
+
+export interface Streak {
+  id: string;
+  userId: string;
+  currentStreak: number;
+  longestStreak: number;
+  lastActivityDate: string | null; // formato YYYY-MM-DD
+  startDate: string; // formato YYYY-MM-DD
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StreakUpdateResult {
+  currentStreak: number;
+  longestStreak: number;
+  lastActivityDate: string;
+}
+
+export interface StreakInitResult {
+  id: string;
+  userId: string;
+  currentStreak: number;
+  startDate: string;
+}
+
+export interface StreakStatus {
+  isActive: boolean;
+  currentStreak: number;
+  longestStreak: number;
+  lastActivityDate: string | null;
+  daysUntilStreakLost: number; // Días restantes antes de perder la racha
+}

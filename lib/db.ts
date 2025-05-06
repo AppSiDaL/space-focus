@@ -45,7 +45,7 @@ export async function initDatabase() {
         title TEXT NOT NULL,
         category VARCHAR(255),
         completed BOOLEAN NOT NULL DEFAULT 0,
-        durationMinutes INTEGER NOT NULL DEFAULT 25,
+        durationMinutes DECIMAL(10,1) NOT NULL DEFAULT 25,
         createdAt DATETIME NOT NULL,
         updatedAt DATETIME NOT NULL,
         isRecurring BOOLEAN NOT NULL DEFAULT 0,
@@ -53,6 +53,20 @@ export async function initDatabase() {
         scheduledDays TEXT,
         lastCompleted DATE,
         lastNotified DATETIME NULL,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS streaks (
+        id VARCHAR(36) PRIMARY KEY,
+        userId VARCHAR(36) NOT NULL,
+        currentStreak INT NOT NULL DEFAULT 0,
+        longestStreak INT NOT NULL DEFAULT 0,
+        lastActivityDate DATE,
+        startDate DATE NOT NULL,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
       )
     `);

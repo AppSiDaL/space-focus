@@ -484,3 +484,35 @@ export async function getTasksToNotify(): Promise<(Task & { userTimeZone: string
     throw error;
   }
 }
+
+
+/**
+ * Verifica si una tarea pertenece a un usuario
+ */
+export async function getTaskByIdAndUserId(taskId: string, userId: string): Promise<Task | null> {
+  const results = await query(
+    "SELECT * FROM tasks WHERE id = ? AND userId = ?",
+    [taskId, userId]
+  ) as MySQLResultRow[];
+  
+  if (!results.length) return null;
+  
+  return results[0] as unknown as Task;
+}
+
+/**
+ * Marca una tarea como completada en la base de datos
+ */
+export async function markTaskAsCompleted(taskId: string): Promise<boolean> {
+  try {
+    await query(
+      "UPDATE tasks SET completed = ?, lastCompleted = CURRENT_DATE WHERE id = ?",
+      [true, taskId]
+    );
+    
+    return true;
+  } catch (error) {
+    console.error("Error al marcar la tarea como completada:", error);
+    return false;
+  }
+}

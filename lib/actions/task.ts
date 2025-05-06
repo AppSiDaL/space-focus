@@ -6,6 +6,7 @@ import { createTask, getTasksByUserId, updateTask, deleteTask } from "@/lib/mode
 import { revalidatePath } from "next/cache";
 import { TaskInput, TaskUpdateInput } from "@/types";
 import { getSession } from "@/lib/auth/session";
+import { getTaskByIdAndUserId, markTaskAsCompleted } from '../models/task';
 
 // Get all tasks for the authenticated user
 export async function getTasksAction() {
@@ -109,9 +110,7 @@ export async function deleteTaskAction(id: string) {
     
     const deleted = await deleteTask(id);
     
-    // Revalidate paths
     revalidatePath('/');
-    revalidatePath('/tasks');
     
     return {
       success: true,
@@ -193,3 +192,37 @@ function getRandomMotivation(): string {
   ];
   return phrases[Math.floor(Math.random() * phrases.length)];
 }
+
+/**
+ * Marcar una tarea como completada (Server Action)
+ */
+export async function completeTask(taskId: string) {
+  try {
+    const user = await getSession();
+    if (!user?.id) {
+      return { success: false, error: "No autorizado" };
+    }
+    
+    // Verificar que la tarea pertenece al usuario
+    const task = await getTaskByIdAndUserId(taskId, user.id);
+    
+    if (!task) {
+      return { success: false, error: "Tarea no encontrada" };
+    }
+    
+    // Actualizar la tarea a completada
+    const updated = await markTaskAsCompleted(taskId);
+    
+    if (!updated) {
+      return { success: false, error: "Error al actualizar la tarea" };
+    }
+    
+    revalidatePath("/");
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Error al completar la tarea:", error);
+    return { success: false, error: "Error al completar la tarea" };
+  }
+}
+
