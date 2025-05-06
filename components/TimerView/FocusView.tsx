@@ -146,7 +146,7 @@ export default function FocusView({
       const exitTimeout = setTimeout(() => onExit(remainingTime), 1000);
       return () => clearTimeout(exitTimeout);
     }
-  }, [timerFinished, onExit]);
+  }, [timerFinished, onExit, remainingTime]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

@@ -9,7 +9,7 @@ import {
   BookMarked,
 } from "lucide-react";
 import { Task } from "@/types";
-import { motion, AnimatePresence, number } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Rocket from "./Rocket";
 import FocusView from "./FocusView";
 

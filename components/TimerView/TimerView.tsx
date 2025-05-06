@@ -48,7 +48,7 @@ export default function TimerView() {
 
   useEffect(() => {
     loadTasks();
-  }, []);
+  }, [loadTasks]);
 
   const handleTaskDelete = async (taskId: string) => {
     try {
