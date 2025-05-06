@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import TimerSection from "./TimerSection";
 import ActivitiesList from "./ActivitiesList";
