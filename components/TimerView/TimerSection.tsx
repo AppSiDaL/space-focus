@@ -9,13 +9,13 @@ import {
   BookMarked,
 } from "lucide-react";
 import { Task } from "@/types";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, number } from "framer-motion";
 import Rocket from "./Rocket";
 import FocusView from "./FocusView";
 
 interface TimerSectionProps {
   selectedTask: Task | null;
-  onTaskComplete?: (taskId: string) => void;
+  onTaskComplete?: (taskId: string, remainingTime: number) => void;
   onDeleteTask?: (taskId: string) => void;
 }
 
@@ -62,12 +62,12 @@ export default function TimerSection({
     setIsRunning(false);
   };
 
-  const handleExitFocus = () => {
+  const handleExitFocus = (remainingTime: number) => {
     setIsFocusMode(false);
     setIsRunning(false);
 
     if (selectedTask && onTaskComplete) {
-      onTaskComplete(selectedTask.id);
+      onTaskComplete(selectedTask.id, remainingTime);
     }
   };
 

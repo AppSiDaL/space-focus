@@ -79,8 +79,12 @@ export default function TimerView() {
     }
   };
 
-  const handleTaskComplete = async (taskId: string) => {
+  const handleTaskComplete = async (taskId: string, remainingTime: number) => {
     try {
+      if (remainingTime > 0) {
+        toast.error("You must complete the task before marking it as done");
+        return;
+      }
       const result = await completeTask(taskId);
       const streakResult = await updateStreakOnTaskCompletion();
       console.log(streakResult);
