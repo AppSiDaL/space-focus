@@ -23,7 +23,7 @@ export default function TimerView() {
   const toast = useToast();
   const router = useRouter();
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -44,11 +44,11 @@ export default function TimerView() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]); // Solo depende de toast, que debería ser estable
 
   useEffect(() => {
     loadTasks();
-  }, [loadTasks]);
+  }, [loadTasks]); // Ahora loadTasks está memoizado y no se recreará en cada render
 
   const handleTaskDelete = async (taskId: string) => {
     try {
